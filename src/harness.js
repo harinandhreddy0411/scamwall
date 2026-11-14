@@ -4,7 +4,8 @@ import { decide, decideWithModel, modelOnlyKey, parseOpinion } from './verdict.j
 import { buildPrompt } from './structured.js';
 
 const GRADES = ['ok', 'soft', 'FALSE ALARM', 'MISSED SCAM', 'OVERCONFIDENT'];
-const SETS = ['tune', 'holdout'];
+const SETS = ['tune', 'holdout', 'hard'];
+const RETRY_WAIT_MS = 6000;
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -23,35 +24,52 @@ export function grade(expect, got) {
   return got === 'cant' ? 'soft' : 'OVERCONFIDENT';
 }
 
-async function askModel(model, text) {
-  const startedAt = performance.now();
-  try {
-    const result = await model.generateContent(buildPrompt(text));
-    const raw = result.response.text();
-    return {
-      ms: Math.round(performance.now() - startedAt),
-      source: result.response.inferenceSource ?? 'not reported',
-      raw,
-      opinion: parseOpinion(raw)
-    };
-  } catch (error) {
-    return {
-      ms: Math.round(performance.now() - startedAt),
-      error: (error && error.message) || String(error),
-      opinion: null
-    };
+async function askModel(model, text, retries) {
+  let attempts = 0;
+  for (;;) {
+    attempts += 1;
+    const startedAt = performance.now();
+    try {
+      const result = await model.generateContent(buildPrompt(text));
+      const raw = result.response.text();
+      return {
+        ms: Math.round(performance.now() - startedAt),
+        source: result.response.inferenceSource ?? 'not reported',
+        raw,
+        opinion: parseOpinion(raw),
+        attempts
+      };
+    } catch (error) {
+      if (attempts > retries) {
+        return {
+          ms: Math.round(performance.now() - startedAt),
+          error: (error && error.message) || String(error),
+          opinion: null,
+          attempts
+        };
+      }
+      await wait(RETRY_WAIT_MS);
+    }
   }
 }
 
-export async function evaluate(text, model) {
+function softenMedium(opinion) {
+  if (opinion && opinion.likelihood === 'medium') {
+    return { ...opinion, likelihood: 'low' };
+  }
+  return opinion;
+}
+
+export async function evaluate(text, model, { retries = 0 } = {}) {
   const signals = findSignals(text);
-  const answer = await askModel(model, text);
+  const answer = await askModel(model, text, retries);
   return {
     signals,
     answer,
     codeKey: decide(signals, null, text).key,
     modelKey: modelOnlyKey(answer.opinion) ?? 'cant',
-    combined: decideWithModel(signals, answer.opinion, text)
+    combined: decideWithModel(signals, answer.opinion, text),
+    softenedKey: decideWithModel(signals, softenMedium(answer.opinion), text).key
   };
 }
 
@@ -59,11 +77,12 @@ export function describeAnswer(answer) {
   if (answer.opinion) {
     return (
       answer.opinion.likelihood + '/' + answer.opinion.category +
-      ' ' + answer.source + ' ' + answer.ms + 'ms'
+      ' ' + answer.source + ' ' + answer.ms + 'ms' +
+      (answer.attempts > 1 ? ' (after retry)' : '')
     );
   }
   if (answer.error) {
-    return 'ERROR ' + answer.error.slice(0, 100).replace(/\s+/g, ' ');
+    return 'ERROR ' + answer.error.slice(0, 300).replace(/\s+/g, ' ');
   }
   return 'BAD OUTPUT ' + String(answer.raw).slice(0, 100).replace(/\s+/g, ' ');
 }
@@ -76,12 +95,15 @@ export function describeSignals(signals) {
 export function formatRow(item, result) {
   return (
     item.id + ' ' + item.set + ' expect=' + item.expect +
+    ' "' + item.text.slice(0, 48).replace(/\s+/g, ' ') + '..."' +
     ' | signals: ' + describeSignals(result.signals) +
     ' | model: ' + describeAnswer(result.answer) +
     ' | code=' + result.codeKey +
     ' model-only=' + result.modelKey +
     ' combined=' + result.combined.key +
-    ' (' + grade(item.expect, result.combined.key) + ')'
+    ' (' + grade(item.expect, result.combined.key) + ')' +
+    ' medium-as-low=' + result.softenedKey +
+    ' (' + grade(item.expect, result.softenedKey) + ')'
   );
 }
 
@@ -90,7 +112,8 @@ export function summarize(rows) {
   const approaches = [
     ['code only', (row) => row.result.codeKey],
     ['model only', (row) => row.result.modelKey],
-    ['combined', (row) => row.result.combined.key]
+    ['combined', (row) => row.result.combined.key],
+    ['medium=low', (row) => row.result.softenedKey]
   ];
   for (const set of SETS) {
     const subset = rows.filter((row) => row.item.set === set);
@@ -124,14 +147,18 @@ export function summarize(rows) {
   return lines;
 }
 
-export async function runCorpus(model, { delayMs = 0, onProgress } = {}) {
+export async function runCorpus(
+  model,
+  { delayMs = 0, retries = 0, sets = SETS, onProgress } = {}
+) {
+  const items = CORPUS.filter((item) => sets.includes(item.set));
   const rows = [];
-  for (let index = 0; index < CORPUS.length; index += 1) {
-    const item = CORPUS[index];
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
     if (onProgress) {
-      onProgress(item.id, index + 1, CORPUS.length);
+      onProgress(item.id, index + 1, items.length);
     }
-    rows.push({ item, result: await evaluate(item.text, model) });
+    rows.push({ item, result: await evaluate(item.text, model, { retries }) });
     if (delayMs > 0) {
       await wait(delayMs);
     }
@@ -141,7 +168,7 @@ export async function runCorpus(model, { delayMs = 0, onProgress } = {}) {
 
 export function formatReport(label, rows) {
   return [
-    '== ' + label + ' | ' + new Date().toLocaleString() + ' ==',
+    '== ' + label + ' | ' + new Date().toLocaleString() + ' | ' + rows.length + ' messages ==',
     ...rows.map((row) => formatRow(row.item, row.result)),
     '--',
     ...summarize(rows),

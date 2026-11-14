@@ -142,5 +142,113 @@ export const CORPUS = [
     set: 'holdout',
     expect: 'none',
     text: 'ExampleBank: Your account statement for October is ready. Log in to the ExampleBank app to view it.'
+  },
+  {
+    id: 'X1',
+    set: 'hard',
+    expect: 'red',
+    text: 'Dear customer, we have detected a suspicious login on your ExampleBank netbanking from another city. If this was not you, call 90000 00000 now to secure your account.'
+  },
+  {
+    id: 'X2',
+    set: 'hard',
+    expect: 'red',
+    text: 'Papa, mera phone kharab ho gaya hai, ye mera naya number hai. Mujhe ek zaroori payment karna hai, kya aap abhi kar sakte ho? Baad me bata dunga.'
+  },
+  {
+    id: 'X3',
+    set: 'hard',
+    expect: 'red',
+    text: 'Hi! We found your profile online. Earn Rs 2000-4000 daily by liking ExampleTube videos from home, no experience needed. Reply YES on ExampleChat to get your task link.'
+  },
+  {
+    id: 'X4',
+    set: 'hard',
+    expect: 'red',
+    text: 'Your ExampleCash loan of Rs 50,000 is approved. No documents needed. Reply with your Aadhaar and PAN numbers to receive the amount in 10 minutes.'
+  },
+  {
+    id: 'X5',
+    set: 'hard',
+    expect: 'red',
+    text: 'ExampleTel: Your SIM will be deactivated after 6 PM today. Complete re-verification by dialling *401*9000000000# from your phone.'
+  },
+  {
+    id: 'X6',
+    set: 'hard',
+    expect: 'cant',
+    text: 'ExampleCourier: Your package could not be delivered because the address is incomplete. Please confirm your address by replying to this number today, otherwise it will be sent back.'
+  },
+  {
+    id: 'X7',
+    set: 'hard',
+    expect: 'red',
+    text: 'Join our exclusive stock tips group on ExampleChat. Last month our members made 40% returns. Limited seats, message us to get your invite.'
+  },
+  {
+    id: 'X8',
+    set: 'hard',
+    expect: 'red',
+    text: 'Hello dear, I am Dr. Sarah from abroad. I have sent you a gift parcel worth 20,000 dollars. Contact the courier agent on ExampleChat 90000 00000 to receive it.'
+  },
+  {
+    id: 'X9',
+    set: 'hard',
+    expect: 'red',
+    text: 'ExampleElectric: Your KYC is pending and your connection will be cut tonight. Call our officer on 90000 00000.'
+  },
+  {
+    id: 'N1',
+    set: 'hard',
+    expect: 'none',
+    text: 'ExampleBank: Beware of fraud calls. ExampleBank never asks for your PIN, OTP or CVV on call, SMS or email. Do not click on unknown links. Stay alert, stay safe.'
+  },
+  {
+    id: 'N2',
+    set: 'hard',
+    expect: 'none',
+    text: 'ExampleBank: Your KYC update was completed successfully on 14-Nov. No further action is needed.'
+  },
+  {
+    id: 'N3',
+    set: 'hard',
+    expect: 'none',
+    text: 'ExampleBank: Your debit card ending 4321 has been blocked as per your request. To get a new card, visit the nearest branch or use the app.'
+  },
+  {
+    id: 'N4',
+    set: 'hard',
+    expect: 'none',
+    text: 'ExampleTel: Your recharge of Rs 299 is successful. Validity till 14-Dec. View details: https://www.exampletel.example/my-account'
+  },
+  {
+    id: 'N5',
+    set: 'hard',
+    expect: 'none',
+    text: 'ExampleFin: Your EMI of Rs 4,520 is due on 18-Nov. Please keep sufficient balance in your account to avoid late fees.'
+  },
+  {
+    id: 'N6',
+    set: 'hard',
+    expect: 'cant',
+    text: 'ExampleBank: 905512 is the OTP to add a new payee. If you did not request this, call 1800-000-0000 immediately.'
+  },
+  {
+    id: 'N7',
+    set: 'hard',
+    expect: 'none',
+    text: 'ExampleMart: Your order #5521 is confirmed. Pay Rs 799 in cash to the delivery partner on delivery.'
+  },
+  {
+    id: 'N8',
+    set: 'hard',
+    expect: 'none',
+    text: "Urgent: can you send me the notes from today's class? The exam is tomorrow."
+  },
+  {
+    id: 'N9',
+    set: 'hard',
+    expect: 'cant',
+    text: 'ExampleBank: Your credit card statement is ready. Pay by 20-Nov to avoid charges. https://bit.ly/ex-stmt'
   }
 ];

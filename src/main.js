@@ -103,9 +103,13 @@ els.checkOne.addEventListener('click', () =>
   })
 );
 
-async function runAll(label, model, delayMs) {
+async function runAll(label, model, options, warmUp) {
+  if (warmUp) {
+    setStatus(label + ': warming up the model (first call is slow)...');
+    await evaluate('Hello, are we still meeting at 6 PM?', model);
+  }
   const rows = await runCorpus(model, {
-    delayMs,
+    ...options,
     onProgress: (id, number, total) =>
       setStatus(label + ': message ' + id + ' (' + number + ' of ' + total + ')...')
   });
@@ -114,11 +118,17 @@ async function runAll(label, model, delayMs) {
 }
 
 els.runDevice.addEventListener('click', () =>
-  guarded(() => runAll('on-device', models.structuredOnDevice, 0))
+  guarded(() => runAll('on-device', models.structuredOnDevice, {}, true))
 );
 
 els.runCloud.addEventListener('click', () =>
-  guarded(() => runAll('cloud', models.structuredCloud, 1500))
+  guarded(() =>
+    runAll('cloud, hard set only', models.structuredCloud, {
+      sets: ['hard'],
+      delayMs: 4000,
+      retries: 1
+    }, false)
+  )
 );
 
 els.copyReport.addEventListener('click', async () => {

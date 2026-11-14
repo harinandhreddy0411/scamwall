@@ -1,5 +1,5 @@
 const ALL_TARGETS =
-  'otp|pin|cvv|password|passcode|one[- ]time (?:password|code|pin)|verification code|security code|(?:the|this|that) code (?:you|that|sent|just|received)';
+  'otp|pin|cvv|password|passcode|one[- ]time (?:password|code|pin)|verification code|security code|(?:the|this|that) code (?:you (?:just )?(?:received|receive|get|got)|you|that|sent|just received|just|received)';
 const SECRET_TARGETS = 'pin|cvv|password|passcode';
 const SHARE_VERBS = 'share|send|forward|tell|give|read out|provide|reply with';
 const ENTER_VERBS = 'enter|type|submit|confirm';
@@ -16,7 +16,7 @@ const NO_FEE_BEFORE = /\b(?:no|zero|nil|without|free)\s+$/i;
 const UPI_ID = /\b[a-z0-9._-]{2,}@[a-z][a-z0-9]+\b(?!\.[a-z])/gi;
 const PAY_VERB = /\b(?:pay|send|transfer|deposit|remit|bhejo|bhej do|bhejiye)\b/i;
 const PAY_WEAK =
-  /\b(?:pay|transfer|deposit|remit|send)\b[^.!?\n]{0,50}?(?:\brs\.?\s?\d|₹\s?\d|\brupees\b|\binr\b|\bamount\b|\bmoney\b|\bfees?\b|\bcharges?\b|\bdues?\b)/gi;
+  /\b(?:pay|transfer|deposit|remit|send)\b[^.!?\n]{0,50}?(?:\brs\.?\s?\d[\d,]*(?:\.\d+)?|₹\s?\d[\d,]*(?:\.\d+)?|\brupees\b|\binr\b|\bamount\b|\bmoney\b|\bfees?\b|\bcharges?\b|\bdues?\b)/gi;
 
 const AUTHORITY =
   /\b(?:officer|inspector|police|cbi|cyber cell|cyber crime|customs|narcotics|income tax|court)\b/i;
