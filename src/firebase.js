@@ -10,6 +10,9 @@ import {
   GoogleAIBackend,
   InferenceMode
 } from 'firebase/ai';
+import { SCHEMA } from './structured.js';
+
+const CLOUD_MODEL = 'gemini-3.5-flash-lite';
 
 const REQUIRED = [
   'VITE_FIREBASE_API_KEY',
@@ -65,6 +68,21 @@ export function init() {
 
   return {
     onDevice: getGenerativeModel(ai, { mode: InferenceMode.ONLY_ON_DEVICE }),
-    cloud: getGenerativeModel(ai, { mode: InferenceMode.ONLY_IN_CLOUD })
+    cloud: getGenerativeModel(ai, { mode: InferenceMode.ONLY_IN_CLOUD }),
+    structuredOnDevice: getGenerativeModel(ai, {
+      mode: InferenceMode.ONLY_ON_DEVICE,
+      onDeviceParams: { promptOptions: { responseConstraint: SCHEMA } }
+    }),
+    structuredCloud: getGenerativeModel(ai, {
+      mode: InferenceMode.ONLY_IN_CLOUD,
+      inCloudParams: {
+        model: CLOUD_MODEL,
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseJsonSchema: SCHEMA,
+          temperature: 0
+        }
+      }
+    })
   };
 }

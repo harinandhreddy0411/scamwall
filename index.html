@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
     <title>Scamwall spike</title>
     <style>
       :root {
@@ -92,6 +93,21 @@
         color: var(--muted);
         font-size: 0.9rem;
       }
+      h2 {
+        margin: 28px 0 4px;
+        font-size: 1.1rem;
+      }
+      #report {
+        margin: 0 0 24px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--card);
+        font: 0.8rem/1.5 ui-monospace, Consolas, monospace;
+        white-space: pre-wrap;
+        word-break: break-word;
+        min-height: 48px;
+      }
       .entry {
         margin-bottom: 10px;
         padding: 10px 12px;
@@ -144,6 +160,22 @@
         counted.
       </p>
 
+      <h2>Structured output test</h2>
+      <p class="hint">
+        Uses 7 made-up messages. On-device runs each one 5 times, cloud runs
+        each one once. Click "1. Prepare on-device model" first.
+      </p>
+      <div class="buttons">
+        <button id="test-device" type="button">
+          Run test: on-device (7 x 5)
+        </button>
+        <button id="test-cloud" type="button">Run test: cloud (7 x 1)</button>
+        <button id="copy-report" type="button">Copy report</button>
+        <button id="clear-report" type="button">Clear report</button>
+      </div>
+      <pre id="report"></pre>
+
+      <h2>Log</h2>
       <div id="log"></div>
     </main>
     <script type="module" src="/src/main.js"></script>
