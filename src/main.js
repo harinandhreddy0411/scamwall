@@ -1,5 +1,7 @@
 import { init } from './firebase.js';
-import { MESSAGES, buildStructuredPrompt, summarize } from './structured.js';
+import { LABELS } from './verdict.js';
+import { SIGNAL_LABELS } from './signals.js';
+import { describeAnswer, evaluate, formatReport, runCorpus } from './harness.js';
 
 const SAMPLE =
   'URGENT: Your ExampleBank account will be blocked today. Update your KYC now at http://examplebank-kyc-verify.example/login and share the OTP you receive.';
@@ -7,26 +9,20 @@ const SAMPLE =
 const els = {
   message: document.getElementById('message'),
   prepare: document.getElementById('prepare'),
-  onDevice: document.getElementById('on-device'),
-  repeat: document.getElementById('repeat'),
-  cloud: document.getElementById('cloud'),
-  clear: document.getElementById('clear'),
-  testDevice: document.getElementById('test-device'),
-  testCloud: document.getElementById('test-cloud'),
+  checkOne: document.getElementById('check-one'),
+  runDevice: document.getElementById('run-device'),
+  runCloud: document.getElementById('run-cloud'),
   copyReport: document.getElementById('copy-report'),
   clearReport: document.getElementById('clear-report'),
   report: document.getElementById('report'),
-  status: document.getElementById('status'),
-  log: document.getElementById('log')
+  status: document.getElementById('status')
 };
 
 const actionButtons = [
   els.prepare,
-  els.onDevice,
-  els.repeat,
-  els.cloud,
-  els.testDevice,
-  els.testCloud
+  els.checkOne,
+  els.runDevice,
+  els.runCloud
 ];
 
 let models = null;
@@ -36,23 +32,8 @@ function setStatus(text) {
   els.status.textContent = text;
 }
 
-function addEntry(kind, headline, body) {
-  const entry = document.createElement('div');
-  entry.className = 'entry ' + kind;
-
-  const head = document.createElement('div');
-  head.className = 'head';
-  head.textContent = new Date().toLocaleTimeString() + '  ' + headline;
-  entry.appendChild(head);
-
-  if (body) {
-    const text = document.createElement('div');
-    text.className = 'body';
-    text.textContent = body;
-    entry.appendChild(text);
-  }
-
-  els.log.prepend(entry);
+function appendReport(text) {
+  els.report.textContent += text + '\n';
 }
 
 function setBusy(value) {
@@ -60,66 +41,6 @@ function setBusy(value) {
   actionButtons.forEach((button) => {
     button.disabled = value || models === null;
   });
-}
-
-function buildPrompt(message) {
-  return (
-    'Is this message likely a scam? Answer in one short sentence.\n\n' + message
-  );
-}
-
-function networkCallsSince(startIndex) {
-  const calls = performance
-    .getEntriesByType('resource')
-    .slice(startIndex)
-    .filter(
-      (entry) =>
-        entry.initiatorType === 'fetch' ||
-        entry.initiatorType === 'xmlhttprequest'
-    );
-  const hosts = [...new Set(calls.map((entry) => new URL(entry.name).host))];
-  return { count: calls.length, hosts };
-}
-
-async function runOnce(label, model) {
-  const message = els.message.value.trim();
-  if (!message) {
-    addEntry('error', label + ' | nothing to check', 'The message box is empty.');
-    return;
-  }
-
-  const startIndex = performance.getEntriesByType('resource').length;
-  const startedAt = performance.now();
-
-  try {
-    const result = await model.generateContent(buildPrompt(message));
-    const elapsed = Math.round(performance.now() - startedAt);
-    await new Promise((resolve) => setTimeout(resolve, 80));
-    const source = result.response.inferenceSource ?? 'not reported';
-    const network = networkCallsSince(startIndex);
-    const networkText =
-      network.count === 0
-        ? '0'
-        : network.count + ' (' + network.hosts.join(', ') + ')';
-    addEntry(
-      'ok',
-      label +
-        ' | source: ' +
-        source +
-        ' | ' +
-        elapsed +
-        ' ms | network requests: ' +
-        networkText,
-      result.response.text()
-    );
-  } catch (error) {
-    const elapsed = Math.round(performance.now() - startedAt);
-    addEntry(
-      'error',
-      label + ' | failed after ' + elapsed + ' ms',
-      (error && error.message) || String(error)
-    );
-  }
 }
 
 async function guarded(action) {
@@ -146,84 +67,58 @@ els.prepare.addEventListener('click', () =>
         );
       });
       setStatus('On-device model ready.');
-      addEntry('ok', 'on-device model ready', '');
     } catch (error) {
-      setStatus('On-device model could not be prepared.');
-      addEntry(
-        'error',
-        'prepare failed',
-        (error && error.message) || String(error)
-      );
-    }
-  })
-);
-
-els.onDevice.addEventListener('click', () =>
-  guarded(async () => {
-    setStatus('Running on-device...');
-    await runOnce('on-device', models.onDevice);
-    setStatus('Done.');
-  })
-);
-
-els.repeat.addEventListener('click', () =>
-  guarded(async () => {
-    for (let i = 1; i <= 5; i += 1) {
-      setStatus('Running on-device, run ' + i + ' of 5...');
-      await runOnce('on-device run ' + i, models.onDevice);
-    }
-    setStatus('Done.');
-  })
-);
-
-els.cloud.addEventListener('click', () =>
-  guarded(async () => {
-    setStatus('Running in the cloud...');
-    await runOnce('cloud', models.cloud);
-    setStatus('Done.');
-  })
-);
-
-async function callStructured(model, text) {
-  const startedAt = performance.now();
-  try {
-    const result = await model.generateContent(buildStructuredPrompt(text));
-    return {
-      ms: Math.round(performance.now() - startedAt),
-      source: result.response.inferenceSource ?? 'not reported',
-      raw: result.response.text()
-    };
-  } catch (error) {
-    return {
-      ms: Math.round(performance.now() - startedAt),
-      error: (error && error.message) || String(error)
-    };
-  }
-}
-
-async function runStructuredTest(label, model, runsPerMessage) {
-  const lines = ['== ' + label + ' | ' + new Date().toLocaleString() + ' =='];
-  for (const item of MESSAGES) {
-    const runs = [];
-    for (let i = 1; i <= runsPerMessage; i += 1) {
       setStatus(
-        label + ': ' + item.id + ', run ' + i + ' of ' + runsPerMessage + '...'
+        'On-device model could not be prepared: ' +
+          ((error && error.message) || String(error))
       );
-      runs.push(await callStructured(model, item.text));
     }
-    lines.push(...summarize(item, runs));
-  }
-  lines.push('');
-  els.report.textContent += lines.join('\n') + '\n';
+  })
+);
+
+els.checkOne.addEventListener('click', () =>
+  guarded(async () => {
+    const text = els.message.value.trim();
+    if (!text) {
+      setStatus('Type or paste a made-up message first.');
+      return;
+    }
+    setStatus('Checking on-device...');
+    const result = await evaluate(text, models.structuredOnDevice);
+    const found = result.signals.map(
+      (signal) => '  - ' + SIGNAL_LABELS[signal.id] + ': "' + signal.text + '"'
+    );
+    appendReport(
+      [
+        '== your message | ' + new Date().toLocaleString() + ' ==',
+        'verdict: ' + LABELS[result.combined.key],
+        'why: ' + result.combined.reason,
+        'model: ' + describeAnswer(result.answer),
+        'signals:',
+        ...(found.length > 0 ? found : ['  (none)']),
+        ''
+      ].join('\n')
+    );
+    setStatus('Done.');
+  })
+);
+
+async function runAll(label, model, delayMs) {
+  const rows = await runCorpus(model, {
+    delayMs,
+    onProgress: (id, number, total) =>
+      setStatus(label + ': message ' + id + ' (' + number + ' of ' + total + ')...')
+  });
+  appendReport(formatReport(label, rows));
   setStatus('Done. Scroll down to the report and click "Copy report".');
 }
 
-els.testDevice.addEventListener('click', () =>
-  guarded(() => runStructuredTest('on-device', models.structuredOnDevice, 5))
+els.runDevice.addEventListener('click', () =>
+  guarded(() => runAll('on-device', models.structuredOnDevice, 0))
 );
 
-els.testCloud.addEventListener('click', () =>
-  guarded(() => runStructuredTest('cloud', models.structuredCloud, 1))
+els.runCloud.addEventListener('click', () =>
+  guarded(() => runAll('cloud', models.structuredCloud, 1500))
 );
 
 els.copyReport.addEventListener('click', async () => {
@@ -239,19 +134,13 @@ els.clearReport.addEventListener('click', () => {
   els.report.textContent = '';
 });
 
-els.clear.addEventListener('click', () => {
-  els.log.replaceChildren();
-});
-
 els.message.value = SAMPLE;
-performance.setResourceTimingBufferSize(1000);
 
 try {
   models = init();
   setStatus('Ready. Click "1. Prepare on-device model" first.');
 } catch (error) {
-  setStatus('Setup problem.');
-  addEntry('error', 'setup failed', (error && error.message) || String(error));
+  setStatus('Setup problem: ' + ((error && error.message) || String(error)));
 }
 
 setBusy(false);

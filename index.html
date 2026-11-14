@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="data:," />
-    <title>Scamwall spike</title>
+    <title>Scamwall test harness</title>
     <style>
       :root {
         --bg: #fafaf8;
@@ -134,49 +134,33 @@
   </head>
   <body>
     <main>
-      <h1>Scamwall spike</h1>
+      <h1>Scamwall test harness</h1>
       <p class="lead">
-        Checks that on-device and cloud inference both work, and which one
-        answered.
+        Runs 24 made-up messages through the rules and the model, and grades the
+        result against what I expect. This is a logic check, not an accuracy
+        benchmark.
       </p>
-
-      <label for="message">Message to check (use made-up text only)</label>
-      <textarea id="message"></textarea>
 
       <div class="buttons">
         <button id="prepare" class="primary" type="button">
           1. Prepare on-device model
         </button>
-        <button id="on-device" type="button">2. Check on-device</button>
-        <button id="repeat" type="button">Repeat on-device x5</button>
-        <button id="cloud" type="button">3. Check in cloud</button>
-        <button id="clear" type="button">Clear log</button>
-      </div>
-
-      <p id="status" role="status">Starting...</p>
-      <p class="hint">
-        Network check: the log counts fetch and XHR requests made during each
-        call. On-device should show 0. The one-time model download is not
-        counted.
-      </p>
-
-      <h2>Structured output test</h2>
-      <p class="hint">
-        Uses 7 made-up messages. On-device runs each one 5 times, cloud runs
-        each one once. Click "1. Prepare on-device model" first.
-      </p>
-      <div class="buttons">
-        <button id="test-device" type="button">
-          Run test: on-device (7 x 5)
-        </button>
-        <button id="test-cloud" type="button">Run test: cloud (7 x 1)</button>
+        <button id="run-device" type="button">2. Run all 24: on-device</button>
+        <button id="run-cloud" type="button">3. Run all 24: cloud</button>
         <button id="copy-report" type="button">Copy report</button>
         <button id="clear-report" type="button">Clear report</button>
       </div>
+
+      <p id="status" role="status">Starting...</p>
       <pre id="report"></pre>
 
-      <h2>Log</h2>
-      <div id="log"></div>
+      <h2>Try one message</h2>
+      <p class="hint">Made-up text only. Uses the on-device model.</p>
+      <label for="message">Message</label>
+      <textarea id="message"></textarea>
+      <div class="buttons">
+        <button id="check-one" type="button">Check this message</button>
+      </div>
     </main>
     <script type="module" src="/src/main.js"></script>
   </body>
