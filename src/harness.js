@@ -4,14 +4,12 @@ import {
   decide,
   decideWithModel,
   describeAsks,
-  modelOnlyKey,
-  parseOpinion
+  modelOnlyKey
 } from './verdict.js';
-import { buildPrompt } from './structured.js';
+import { askModel } from './model.js';
 
 const GRADES = ['ok', 'soft', 'FALSE ALARM', 'MISSED SCAM', 'OVERCONFIDENT'];
 const SETS = ['tune', 'holdout', 'hard', 'fresh'];
-const RETRY_WAIT_MS = 6000;
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -31,35 +29,6 @@ export function grade(expect, got) {
     return 'FALSE ALARM';
   }
   return got === 'cant' ? 'soft' : 'OVERCONFIDENT';
-}
-
-async function askModel(model, text, retries) {
-  let attempts = 0;
-  for (;;) {
-    attempts += 1;
-    const startedAt = performance.now();
-    try {
-      const result = await model.generateContent(buildPrompt(text));
-      const raw = result.response.text();
-      return {
-        ms: Math.round(performance.now() - startedAt),
-        source: result.response.inferenceSource ?? 'not reported',
-        raw,
-        opinion: parseOpinion(raw),
-        attempts
-      };
-    } catch (error) {
-      if (attempts > retries) {
-        return {
-          ms: Math.round(performance.now() - startedAt),
-          error: (error && error.message) || String(error),
-          opinion: null,
-          attempts
-        };
-      }
-      await wait(RETRY_WAIT_MS);
-    }
-  }
 }
 
 export async function evaluate(text, model, { retries = 0 } = {}) {

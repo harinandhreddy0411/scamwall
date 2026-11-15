@@ -3,164 +3,150 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="data:," />
-    <title>Scamwall test harness</title>
-    <style>
-      :root {
-        --bg: #fafaf8;
-        --fg: #1b1b1a;
-        --muted: #6a6a66;
-        --line: #d9d9d3;
-        --card: #ffffff;
-        --accent: #1d5fd1;
-        --ok: #1f7a3d;
-        --err: #b3261e;
-      }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --bg: #141413;
-          --fg: #ececea;
-          --muted: #9b9b95;
-          --line: #34342f;
-          --card: #1c1c1a;
-          --accent: #6b9bf0;
-          --ok: #5fcf86;
-          --err: #f2857d;
-        }
-      }
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0;
-        padding: 24px 16px 64px;
-        background: var(--bg);
-        color: var(--fg);
-        font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
-      }
-      main {
-        max-width: 760px;
-        margin: 0 auto;
-      }
-      h1 {
-        margin: 0 0 4px;
-        font-size: 1.4rem;
-      }
-      p.lead {
-        margin: 0 0 20px;
-        color: var(--muted);
-      }
-      textarea {
-        width: 100%;
-        min-height: 120px;
-        padding: 12px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: var(--card);
-        color: var(--fg);
-        font: inherit;
-        resize: vertical;
-      }
-      .buttons {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin: 12px 0;
-      }
-      button {
-        padding: 10px 14px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: var(--card);
-        color: var(--fg);
-        font: inherit;
-        cursor: pointer;
-      }
-      button.primary {
-        border-color: var(--accent);
-        color: var(--accent);
-      }
-      button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      #status {
-        margin: 0 0 8px;
-        font-weight: 600;
-      }
-      .hint {
-        margin: 0 0 20px;
-        color: var(--muted);
-        font-size: 0.9rem;
-      }
-      h2 {
-        margin: 28px 0 4px;
-        font-size: 1.1rem;
-      }
-      #report {
-        margin: 0 0 24px;
-        padding: 12px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: var(--card);
-        font: 0.8rem/1.5 ui-monospace, Consolas, monospace;
-        white-space: pre-wrap;
-        word-break: break-word;
-        min-height: 48px;
-      }
-      .entry {
-        margin-bottom: 10px;
-        padding: 10px 12px;
-        border: 1px solid var(--line);
-        border-left-width: 4px;
-        border-radius: 8px;
-        background: var(--card);
-      }
-      .entry.ok {
-        border-left-color: var(--ok);
-      }
-      .entry.error {
-        border-left-color: var(--err);
-      }
-      .head {
-        font: 0.85rem/1.4 ui-monospace, Consolas, monospace;
-        word-break: break-word;
-      }
-      .body {
-        margin-top: 6px;
-        white-space: pre-wrap;
-      }
-    </style>
+    <meta
+      name="description"
+      content="Check a suspicious message on your own device. Nothing is sent to the cloud unless you open the gate."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2315222E'/%3E%3Cpath d='M0 8h32M0 16h32M0 24h32M16 0v8M8 8v8M24 8v8M16 16v8M8 24v8M24 24v8' stroke='%23365168' stroke-width='1.5' fill='none'/%3E%3Crect x='12' y='9' width='8' height='14' fill='%23F0B429'/%3E%3C/svg%3E"
+    />
+    <title>Scamwall</title>
+    <link rel="stylesheet" href="/src/styles.css" />
   </head>
-  <body>
-    <main>
-      <h1>Scamwall test harness</h1>
-      <p class="lead">
-        Runs 61 made-up messages (including 18 hard ones and 19 fresh ones) through the rules and the model, and grades the result against
-        what I expect. This is a logic check, not an accuracy benchmark.
+  <body data-gate="closed">
+    <a class="skip" href="#message">Skip to the message box</a>
+
+    <header class="top">
+      <h1 class="wordmark">
+        <svg class="wordmark-icon" viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="6" fill="currentColor" />
+          <path
+            class="icon-joints"
+            d="M0 8h32M0 16h32M0 24h32M16 0v8M8 8v8M24 8v8M16 16v8M8 24v8M24 24v8"
+            stroke-width="1.5"
+            fill="none"
+          />
+          <rect class="icon-gate" x="12" y="9" width="8" height="14" />
+        </svg>
+        Scamwall
+      </h1>
+      <p class="tagline">
+        Paste a message you are unsure about. It is checked on this device. Nothing is sent
+        anywhere unless you open the gate.
       </p>
+    </header>
 
-      <div class="buttons">
-        <button id="prepare" class="primary" type="button">
-          1. Prepare on-device model
-        </button>
-        <button id="run-device" type="button">2. Run all 61: on-device</button>
-        <button id="run-cloud" type="button">3. Run hard + fresh (37): cloud</button>
-        <button id="copy-report" type="button">Copy report</button>
-        <button id="clear-report" type="button">Clear report</button>
+    <main class="stage">
+      <section class="lane lane-device" aria-labelledby="device-title">
+        <h2 id="device-title">On this device</h2>
+
+        <div class="slip">
+          <label class="sr-only" for="message">Message to check</label>
+          <textarea
+            id="message"
+            maxlength="1500"
+            rows="7"
+            spellcheck="false"
+            placeholder="Paste the message here. English is checked on this device. Other languages need the cloud."
+          ></textarea>
+          <div id="marked" class="marked" hidden tabindex="0" aria-label="Your message, with marks"></div>
+        </div>
+
+        <div class="actions">
+          <button id="check" class="btn primary" type="button">Check this message</button>
+          <button id="edit" class="btn" type="button" hidden>Edit message</button>
+          <button id="clear" class="btn quiet" type="button">Clear</button>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+
+        <section id="verdict" class="verdict" hidden aria-labelledby="v-label">
+          <div class="verdict-head">
+            <svg id="v-glyph" class="glyph" viewBox="0 0 48 48" aria-hidden="true"></svg>
+            <h3 id="v-label" tabindex="-1"></h3>
+          </div>
+          <p id="v-reason" class="reason"></p>
+          <p id="v-update" class="update" hidden>Includes the cloud's second opinion.</p>
+          <ol id="v-why" class="why"></ol>
+          <p id="v-advice" class="advice"></p>
+          <button id="second" class="btn gate-btn" type="button" hidden></button>
+          <details class="how">
+            <summary>How this was decided</summary>
+            <ul id="v-details"></ul>
+          </details>
+        </section>
+
+        <div class="try">
+          <h2 class="try-title">Try a made-up message</h2>
+          <div id="samples" class="samples"></div>
+        </div>
+      </section>
+
+      <div class="wall" aria-hidden="true">
+        <div class="gate">
+          <div class="gate-bar"></div>
+        </div>
+        <p class="wall-label">Nothing crosses unless you open the gate</p>
       </div>
 
-      <p id="status" role="status">Starting...</p>
-      <pre id="report"></pre>
+      <section class="lane lane-cloud" aria-labelledby="cloud-title">
+        <h2 id="cloud-title">In the cloud</h2>
 
-      <h2>Try one message</h2>
-      <p class="hint">Made-up text only. Uses the on-device model.</p>
-      <label for="message">Message</label>
-      <textarea id="message"></textarea>
-      <div class="buttons">
-        <button id="check-one" type="button">Check this message</button>
-      </div>
+        <div class="counter">
+          <p class="counter-number" id="sent-count">0</p>
+          <p class="counter-caption">times your text was sent to the cloud</p>
+        </div>
+
+        <div id="cloud-idle" class="cloud-panel">
+          <p>
+            Nothing is here. Your message has not left this device. If the first check is not
+            enough, you can send a redacted copy for a second opinion from a larger AI.
+          </p>
+        </div>
+
+        <div id="cloud-offer" class="cloud-panel" hidden>
+          <h3>This is what would cross the wall</h3>
+          <p id="redact-note" class="redact-note"></p>
+          <label class="sr-only" for="preview">Text that will be sent. You can edit it.</label>
+          <textarea id="preview" rows="7" spellcheck="false"></textarea>
+          <p class="fine">
+            Names are not found automatically. Remove anything personal before you send.
+          </p>
+          <details class="request">
+            <summary>Show the exact request</summary>
+            <pre id="request-text"></pre>
+          </details>
+          <p id="offer-error" class="error" role="alert" hidden></p>
+          <div class="actions">
+            <button id="send" class="btn gate-btn" type="button">Open the gate and send</button>
+            <button id="keep" class="btn night-quiet" type="button">Keep it here</button>
+          </div>
+        </div>
+
+        <div id="cloud-done" class="cloud-panel" hidden>
+          <h3>Second opinion received</h3>
+          <p class="fine">This is exactly what was sent:</p>
+          <pre id="sent-text" class="sent"></pre>
+          <p id="answer"></p>
+          <p class="fine">
+            The cloud AI can raise or lower doubt, but only the rules can mark a message red.
+          </p>
+        </div>
+
+        <section class="ledger-wrap" aria-labelledby="ledger-title">
+          <h2 id="ledger-title">What left this device</h2>
+          <ol id="ledger" class="ledger"></ol>
+        </section>
+      </section>
     </main>
-    <script type="module" src="/src/main.js"></script>
+
+    <footer class="foot">
+      <p>
+        Scamwall looks for patterns in text. It cannot see who sent a message or where a link goes,
+        and it never says a message is safe. All examples here are made up.
+      </p>
+    </footer>
+
+    <script type="module" src="/src/app.js"></script>
   </body>
 </html>

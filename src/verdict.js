@@ -94,17 +94,19 @@ export function decide(signals, opinion, text, { mediumWithoutAsksIsLow = false 
   const likelihood = effectiveLikelihood(opinion, mediumWithoutAsksIsLow);
 
   if (level === 'strong') {
-    return { key: 'red', reason: 'concrete red flags found by the rules' };
+    return { key: 'red', code: 'strong_rules', reason: 'concrete red flags found by the rules' };
   }
   if (hasOtpCode(text)) {
     return {
       key: 'cant',
+      code: 'otp',
       reason: 'a one-time code is present and the text cannot show what it is for'
     };
   }
   if (likelihood === 'high') {
     return {
       key: 'warn',
+      code: level === 'weak' ? 'uneasy_weak' : 'uneasy',
       reason:
         level === 'weak'
           ? 'one weak sign from the rules and the on-device AI is uneasy'
@@ -112,12 +114,16 @@ export function decide(signals, opinion, text, { mediumWithoutAsksIsLow = false 
     };
   }
   if (level === 'weak') {
-    return { key: 'cant', reason: 'one weak sign that nothing else confirms' };
+    return { key: 'cant', code: 'weak_only', reason: 'one weak sign that nothing else confirms' };
   }
   if (likelihood === 'medium') {
-    return { key: 'cant', reason: 'the on-device AI is unsure and the rules found nothing concrete' };
+    return {
+      key: 'cant',
+      code: 'unsure',
+      reason: 'the on-device AI is unsure and the rules found nothing concrete'
+    };
   }
-  return { key: 'none', reason: 'no red flags from the rules or the on-device AI' };
+  return { key: 'none', code: 'clear', reason: 'no red flags from the rules or the on-device AI' };
 }
 
 export function decideWithModel(signals, opinion, text, options) {
@@ -127,6 +133,25 @@ export function decideWithModel(signals, opinion, text, options) {
   }
   return {
     key: 'cant',
+    code: 'no_model',
     reason: 'the on-device check gave no usable answer and the rules found nothing concrete'
   };
+}
+
+export function mergeOpinions(device, cloud) {
+  if (!cloud) {
+    return device;
+  }
+  if (!device) {
+    return cloud;
+  }
+  let likelihood;
+  if (cloud.likelihood === 'low') {
+    likelihood = device.likelihood === 'high' ? 'medium' : 'low';
+  } else if (cloud.likelihood === 'high' || device.likelihood === 'high') {
+    likelihood = 'high';
+  } else {
+    likelihood = 'medium';
+  }
+  return { likelihood, asks: cloud.asks };
 }
