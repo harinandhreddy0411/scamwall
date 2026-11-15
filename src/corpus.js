@@ -250,5 +250,119 @@ export const CORPUS = [
     set: 'hard',
     expect: 'cant',
     text: 'ExampleBank: Your credit card statement is ready. Pay by 20-Nov to avoid charges. https://bit.ly/ex-stmt'
+  },
+  {
+    id: 'F1',
+    set: 'fresh',
+    expect: 'red',
+    text: 'Having trouble with your ExampleBank card? Our 24x7 customer care is now reachable on 98765 43210. Call and our executive will help you right away.'
+  },
+  {
+    id: 'F2',
+    set: 'fresh',
+    expect: 'red',
+    text: 'Dear winner, your number was picked in the ExampleTel anniversary lucky draw. To claim your prize of Rs 5 lakh, send your name and address and pay delivery charges of Rs 300.'
+  },
+  {
+    id: 'F3',
+    set: 'fresh',
+    expect: 'red',
+    text: 'Get an instant loan of Rs 1 lakh in 5 minutes with no credit check. Download the ExampleLoan app now and get the money in your account.'
+  },
+  {
+    id: 'F4',
+    set: 'fresh',
+    expect: 'red',
+    text: 'ExampleBank: Your credit card reward points worth Rs 3,200 will expire today. Redeem now by sharing your card number and CVV with our executive.'
+  },
+  {
+    id: 'F5',
+    set: 'fresh',
+    expect: 'red',
+    text: 'ExampleMart: Sorry for the delay. To get your Rs 1,100 refund, accept the request we have sent and enter your PIN.'
+  },
+  {
+    id: 'F6',
+    set: 'fresh',
+    expect: 'red',
+    text: 'ExampleCustoms: A parcel booked in your name was found with prohibited material. A case has been registered against you. Join the video call to give your statement.'
+  },
+  {
+    id: 'F7',
+    set: 'fresh',
+    expect: 'red',
+    text: 'Make Rs 50,000 a month from the stock market with our guaranteed returns plan. Limited seats. Message us today to join the ExampleChat group.'
+  },
+  {
+    id: 'F8',
+    set: 'fresh',
+    expect: 'red',
+    text: 'Urgent hiring: data entry from home, salary Rs 25,000 monthly. Pay Rs 1,000 as refundable kit fee to start work.'
+  },
+  {
+    id: 'F9',
+    set: 'fresh',
+    expect: 'red',
+    text: 'ExampleElectric: Dear consumer, your last bill is unpaid and your power supply will be disconnected tonight. Contact our officer at 90000 00000 to avoid it.'
+  },
+  {
+    id: 'F10',
+    set: 'fresh',
+    expect: 'red',
+    text: 'Dear customer, your ExampleBank KYC has expired. Update now at https://bit.ly/ex-kyc2 to keep your account active.'
+  },
+  {
+    id: 'F11',
+    set: 'fresh',
+    expect: 'red',
+    text: 'Aapke ExampleBank account me suspicious activity dikhi hai. Apna Aadhaar aur PAN ki photo bhej kar verify karein, nahi to account freeze ho jayega.'
+  },
+  {
+    id: 'G1',
+    set: 'fresh',
+    expect: 'none',
+    text: 'ExampleBank: Rs 450.00 sent via UPI to ExampleMart on 15-Nov. UPI Ref 5512345678. Not you? Call 1800-000-0000.'
+  },
+  {
+    id: 'G2',
+    set: 'fresh',
+    expect: 'cant',
+    text: 'Your ExampleApp login code is 318204. It expires in 3 minutes. Never share this code with anyone.'
+  },
+  {
+    id: 'G3',
+    set: 'fresh',
+    expect: 'none',
+    text: 'ExampleCourier: Our delivery partner tried to reach you today. Please call 1800-000-0000 to reschedule your delivery.'
+  },
+  {
+    id: 'G4',
+    set: 'fresh',
+    expect: 'none',
+    text: 'ExampleTel: 80% of your daily data is used. Get a Rs 19 data booster in the ExampleTel app.'
+  },
+  {
+    id: 'G5',
+    set: 'fresh',
+    expect: 'none',
+    text: 'Your ExampleGas cylinder booking is confirmed. Delivery is expected in 3 days. Do not pay anything extra to the delivery person.'
+  },
+  {
+    id: 'G6',
+    set: 'fresh',
+    expect: 'none',
+    text: 'Can you call me when you are free? It is about the trip plan.'
+  },
+  {
+    id: 'G7',
+    set: 'fresh',
+    expect: 'none',
+    text: 'ExampleBank: Your pre-approved personal loan of Rs 2 lakh is ready. Visit your branch or open the app to apply. T&C apply.'
+  },
+  {
+    id: 'G8',
+    set: 'fresh',
+    expect: 'none',
+    text: 'Hi, this is Ravi from ExampleStay. Your room 204 is ready. Call me on 90000 00000 if you need anything.'
   }
 ];

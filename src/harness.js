@@ -1,10 +1,16 @@
 import { CORPUS } from './corpus.js';
 import { findSignals } from './signals.js';
-import { decide, decideWithModel, modelOnlyKey, parseOpinion } from './verdict.js';
+import {
+  decide,
+  decideWithModel,
+  describeAsks,
+  modelOnlyKey,
+  parseOpinion
+} from './verdict.js';
 import { buildPrompt } from './structured.js';
 
 const GRADES = ['ok', 'soft', 'FALSE ALARM', 'MISSED SCAM', 'OVERCONFIDENT'];
-const SETS = ['tune', 'holdout', 'hard'];
+const SETS = ['tune', 'holdout', 'hard', 'fresh'];
 const RETRY_WAIT_MS = 6000;
 
 function wait(ms) {
@@ -14,6 +20,9 @@ function wait(ms) {
 export function grade(expect, got) {
   if (expect === got) {
     return 'ok';
+  }
+  if (got === 'warn') {
+    return expect === 'none' ? 'FALSE ALARM' : 'soft';
   }
   if (expect === 'red' && got === 'none') {
     return 'MISSED SCAM';
@@ -53,13 +62,6 @@ async function askModel(model, text, retries) {
   }
 }
 
-function softenMedium(opinion) {
-  if (opinion && opinion.likelihood === 'medium') {
-    return { ...opinion, likelihood: 'low' };
-  }
-  return opinion;
-}
-
 export async function evaluate(text, model, { retries = 0 } = {}) {
   const signals = findSignals(text);
   const answer = await askModel(model, text, retries);
@@ -69,14 +71,14 @@ export async function evaluate(text, model, { retries = 0 } = {}) {
     codeKey: decide(signals, null, text).key,
     modelKey: modelOnlyKey(answer.opinion) ?? 'cant',
     combined: decideWithModel(signals, answer.opinion, text),
-    softenedKey: decideWithModel(signals, softenMedium(answer.opinion), text).key
+    asksKey: decideWithModel(signals, answer.opinion, text, { mediumWithoutAsksIsLow: true }).key
   };
 }
 
 export function describeAnswer(answer) {
   if (answer.opinion) {
     return (
-      answer.opinion.likelihood + '/' + answer.opinion.category +
+      answer.opinion.likelihood + ' [asks: ' + describeAsks(answer.opinion) + ']' +
       ' ' + answer.source + ' ' + answer.ms + 'ms' +
       (answer.attempts > 1 ? ' (after retry)' : '')
     );
@@ -102,8 +104,8 @@ export function formatRow(item, result) {
     ' model-only=' + result.modelKey +
     ' combined=' + result.combined.key +
     ' (' + grade(item.expect, result.combined.key) + ')' +
-    ' medium-as-low=' + result.softenedKey +
-    ' (' + grade(item.expect, result.softenedKey) + ')'
+    ' asks-aware=' + result.asksKey +
+    ' (' + grade(item.expect, result.asksKey) + ')'
   );
 }
 
@@ -113,7 +115,7 @@ export function summarize(rows) {
     ['code only', (row) => row.result.codeKey],
     ['model only', (row) => row.result.modelKey],
     ['combined', (row) => row.result.combined.key],
-    ['medium=low', (row) => row.result.softenedKey]
+    ['asks-aware', (row) => row.result.asksKey]
   ];
   for (const set of SETS) {
     const subset = rows.filter((row) => row.item.set === set);

@@ -123,8 +123,8 @@ els.runDevice.addEventListener('click', () =>
 
 els.runCloud.addEventListener('click', () =>
   guarded(() =>
-    runAll('cloud, hard set only', models.structuredCloud, {
-      sets: ['hard'],
+    runAll('cloud, hard and fresh sets', models.structuredCloud, {
+      sets: ['hard', 'fresh'],
       delayMs: 4000,
       retries: 1
     }, false)
