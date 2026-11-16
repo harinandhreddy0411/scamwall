@@ -67,6 +67,7 @@ export function init() {
   const ai = getAI(app, { backend: new GoogleAIBackend() });
 
   return {
+    app,
     onDevice: getGenerativeModel(ai, { mode: InferenceMode.ONLY_ON_DEVICE }),
     cloud: getGenerativeModel(ai, { mode: InferenceMode.ONLY_IN_CLOUD }),
     structuredOnDevice: getGenerativeModel(ai, {

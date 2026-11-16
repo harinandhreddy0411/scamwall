@@ -3,7 +3,7 @@ import { findSignals, SIGNAL_LABELS } from './signals.js';
 import { hasUnsupportedScript } from './script.js';
 import { redact, describeRedactions } from './redact.js';
 import { buildMarks } from './marks.js';
-import { loadConfig } from './config.js';
+import { loadRemoteConfig, mergeConfig, readUrlConfig } from './config.js';
 import { SAMPLES } from './samples.js';
 import { askModel } from './model.js';
 import { buildPrompt } from './structured.js';
@@ -103,6 +103,18 @@ function createModels() {
     return window.__fakeModels;
   }
   return init();
+}
+
+function applyConfig(next) {
+  config = next;
+  if (import.meta.env.DEV) {
+    window.__config = config;
+  }
+  if (state && !busy) {
+    renderVerdict(Boolean(state.cloud));
+  } else {
+    setIdleText('default');
+  }
 }
 
 function setStatus(text, tone) {
@@ -420,7 +432,7 @@ function closeOffer() {
 }
 
 async function sendToCloud() {
-  if (busy || !state || !models) {
+  if (busy || !state || !models || !config.cloudEnabled) {
     return;
   }
   const edited = els.preview.value.trim();
@@ -529,17 +541,21 @@ els.send.addEventListener('click', sendToCloud);
 els.preview.addEventListener('input', updateRequest);
 
 async function start() {
+  const fromUrl = readUrlConfig();
   buildSamples();
   setGate(false);
   renderLedger();
-  config = await loadConfig();
   try {
     models = createModels();
   } catch (error) {
     models = null;
     setStatus('Setup problem: ' + shortError(error) + '. Only the rules will run.', 'error');
   }
-  setIdleText('default');
+  applyConfig(fromUrl);
+  if (models && models.app) {
+    const remote = await loadRemoteConfig(models.app);
+    applyConfig(mergeConfig(fromUrl, remote));
+  }
 }
 
 start();
