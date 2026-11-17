@@ -4,7 +4,7 @@ export const LABELS = {
   red: 'Red flags found',
   warn: 'Looks suspicious - not confirmed',
   none: 'No red flags found - not a guarantee',
-  cant: "Can't judge from text alone"
+  cant: "Verify first - the text alone can't settle this"
 };
 
 const LIKELIHOODS = ['high', 'medium', 'low'];
@@ -44,7 +44,11 @@ export function parseOpinion(raw) {
   const asks = Array.isArray(parsed.asks_reader_to)
     ? [...new Set(parsed.asks_reader_to.filter((ask) => ASK_VALUES.includes(ask)))]
     : [];
-  return { likelihood: parsed.scam_likelihood, asks };
+  return {
+    likelihood: parsed.scam_likelihood,
+    asks,
+    directed: parsed.addresses_reviewer === true
+  };
 }
 
 export function hasOtpCode(text) {
@@ -72,6 +76,9 @@ export function modelOnlyKey(opinion) {
   if (opinion.likelihood === 'high') {
     return 'red';
   }
+  if (opinion.directed) {
+    return 'warn';
+  }
   return opinion.likelihood === 'medium' ? 'cant' : 'none';
 }
 
@@ -95,6 +102,13 @@ export function decide(signals, opinion, text, { mediumWithoutAsksIsLow = false 
 
   if (level === 'strong') {
     return { key: 'red', code: 'strong_rules', reason: 'concrete red flags found by the rules' };
+  }
+  if (opinion && opinion.directed) {
+    return {
+      key: 'warn',
+      code: 'directed',
+      reason: 'the AI saw text in the message that is written for an AI reader, not for you'
+    };
   }
   if (hasOtpCode(text)) {
     return {
@@ -153,5 +167,5 @@ export function mergeOpinions(device, cloud) {
   } else {
     likelihood = 'medium';
   }
-  return { likelihood, asks: cloud.asks };
+  return { likelihood, asks: cloud.asks, directed: Boolean(device.directed || cloud.directed) };
 }

@@ -8,12 +8,12 @@ const RULES = [
   {
     label: 'email address',
     token: '[email address]',
-    pattern: /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g
+    pattern: /(?<![\w.+-])[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g
   },
   {
     label: 'UPI ID',
     token: '[UPI ID]',
-    pattern: /\b[a-z0-9._-]{2,}@[a-z][a-z0-9]+\b/gi
+    pattern: /(?<![a-z0-9._-])[a-z0-9._-]{2,}@[a-z][a-z0-9]+\b/gi
   },
   {
     label: 'phone number',

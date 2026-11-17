@@ -767,3 +767,77 @@ body[data-gate='open'] .gate-bar {
     transition: none;
   }
 }
+
+.notice {
+  margin-top: 14px;
+  max-width: 62ch;
+  padding: 10px 14px;
+  border-left: 5px solid var(--gate-light);
+  background: rgba(240, 180, 41, 0.16);
+  font-weight: 600;
+}
+
+.checkself {
+  margin-top: 22px;
+  max-width: 62ch;
+  padding: 16px 18px;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: var(--slip);
+}
+
+.checkself h4 {
+  font-size: 1.05rem;
+}
+
+.cs-found {
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.checkself .fine {
+  margin-top: 8px;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.cs-row {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.cs-row label {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.cs-row input {
+  padding: 9px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 1rem;
+}
+
+.cs-row input:focus-visible {
+  outline: 3px solid var(--gate-light);
+  outline-offset: 2px;
+}
+
+.checkself .btn {
+  margin-top: 14px;
+}
+
+.cs-result {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding-left: 1.2em;
+}
+
+.cs-result:empty {
+  display: none;
+}

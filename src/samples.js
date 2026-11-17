@@ -10,12 +10,12 @@ function textOf(id) {
 
 export const SAMPLES = [
   { title: 'Account will be blocked', text: textOf('T1') },
+  { title: 'Bank debit alert', text: textOf('T5') },
+  { title: 'Delivery update', text: textOf('T6') },
   { title: 'Parcel held at customs', text: textOf('H7') },
   { title: 'Work-from-home fee', text: textOf('T3') },
   { title: 'Money from "mom"', text: textOf('H9') },
   { title: 'Power will be cut', text: textOf('H2') },
-  { title: 'Bank debit alert', text: textOf('T5') },
-  { title: 'Delivery update', text: textOf('T6') },
   { title: 'Login code', text: textOf('T7') },
   {
     title: 'Message in Hindi',

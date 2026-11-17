@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scamwall spike: translation and images</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 860px; margin: 24px auto; padding: 0 16px; line-height: 1.5; color: #15222e; }
+      h1 { font-size: 1.4rem; } h2 { font-size: 1.1rem; margin-top: 28px; }
+      button { padding: 8px 14px; margin: 4px 6px 4px 0; font-size: 1rem; cursor: pointer; }
+      textarea { width: 100%; min-height: 90px; font-size: 1rem; }
+      pre { background: #f1f4f6; padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+      select, input[type=file] { font-size: 1rem; margin: 4px 6px 4px 0; }
+      .hint { color: #3f505d; font-size: 0.95rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Scamwall spike: translation and image input</h1>
+    <p class="hint">
+      Runs only in this browser. Nothing is sent anywhere by this page. Open it through the dev
+      server (http://localhost:PORT/spike.html), in desktop Chrome. Use made-up text only.
+    </p>
+
+    <h2>1. What does this Chrome support?</h2>
+    <button id="probe" type="button">Run the support check</button>
+
+    <h2>2. Translate a message to English on this device</h2>
+    <label for="lang">Language of the message</label>
+    <select id="lang">
+      <option value="hi">Hindi</option>
+      <option value="ta">Tamil</option>
+      <option value="te">Telugu</option>
+      <option value="ml">Malayalam</option>
+      <option value="kn">Kannada</option>
+      <option value="bn">Bengali</option>
+      <option value="mr">Marathi</option>
+    </select>
+    <button id="fill" type="button">Use the made-up sample for this language</button>
+    <label for="text" class="hint">Message (made up, or anonymised)</label>
+    <textarea id="text"></textarea>
+    <button id="translate" type="button">Translate on this device</button>
+
+    <h2>3. Can the on-device AI read an image?</h2>
+    <label for="image">A made-up screenshot (no real names, numbers or chats)</label>
+    <input id="image" type="file" accept="image/*" />
+    <button id="read-image" type="button">Ask the on-device AI what the image says</button>
+
+    <h2>Report</h2>
+    <button id="copy" type="button">Copy report</button>
+    <button id="clear" type="button">Clear</button>
+    <pre id="report" aria-live="polite"></pre>
+
+    <script type="module">
+      const SAMPLES = {
+        hi: 'आपका ExampleBank खाता आज बंद हो जाएगा। अभी अपना KYC अपडेट करें।',
+        ta: 'உங்கள் ExampleBank கணக்கு இன்று முடக்கப்படும். உடனே KYC புதுப்பிக்கவும்.',
+        te: 'మీ ExampleBank ఖాతా ఈరోజు బ్లాక్ చేయబడుతుంది. వెంటనే KYC అప్‌డేట్ చేయండి.',
+        ml: 'നിങ്ങളുടെ ExampleBank അക്കൗണ്ട് ഇന്ന് ബ്ലോക്ക് ചെയ്യപ്പെടും. ഉടൻ KYC അപ്ഡേറ്റ് ചെയ്യുക.',
+        kn: 'ನಿಮ್ಮ ExampleBank ಖಾತೆ ಇಂದು ಬ್ಲಾಕ್ ಆಗುತ್ತದೆ. ತಕ್ಷಣ KYC ಅಪ್‌ಡೇಟ್ ಮಾಡಿ.',
+        bn: 'আপনার ExampleBank অ্যাকাউন্ট আজ ব্লক হয়ে যাবে। এখনই KYC আপডেট করুন।',
+        mr: 'तुमचे ExampleBank खाते आज बंद होईल. आताच KYC अपडेट करा.'
+      };
+      const $ = (id) => document.getElementById(id);
+      const report = $('report');
+      const log = (line) => { report.textContent += line + '\n'; };
+      const stamp = () => new Date().toLocaleTimeString();
+      const ms = (t0) => Math.round(performance.now() - t0) + ' ms';
+
+      $('text').value = SAMPLES.hi;
+      $('lang').addEventListener('change', () => { $('text').value = SAMPLES[$('lang').value]; });
+      $('fill').addEventListener('click', () => { $('text').value = SAMPLES[$('lang').value]; });
+      $('clear').addEventListener('click', () => { report.textContent = ''; });
+      $('copy').addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(report.textContent); log('(report copied)'); } catch { log('(copy failed, select the text by hand)'); }
+      });
+
+      async function safe(label, fn) {
+        const t0 = performance.now();
+        try { const value = await fn(); log(label + ': ' + value + ' [' + ms(t0) + ']'); return value; }
+        catch (error) { log(label + ': ERROR ' + ((error && error.name) || '') + ' ' + ((error && error.message) || error)); return null; }
+      }
+
+      $('probe').addEventListener('click', async () => {
+        log('== support check ' + stamp() + ' ==');
+        log('Chrome: ' + navigator.userAgent.replace(/.*(Chrome\/[\d.]+).*/, '$1'));
+        log('Translator API present: ' + ('Translator' in self));
+        log('LanguageDetector API present: ' + ('LanguageDetector' in self));
+        log('LanguageModel (Prompt API) present: ' + ('LanguageModel' in self));
+        if ('Translator' in self) {
+          for (const code of Object.keys(SAMPLES)) {
+            await safe('Translator ' + code + ' -> en', () => Translator.availability({ sourceLanguage: code, targetLanguage: 'en' }));
+          }
+        }
+        if ('LanguageDetector' in self) {
+          await safe('LanguageDetector availability', () => LanguageDetector.availability());
+        }
+        if ('LanguageModel' in self) {
+          await safe('Prompt API text en', () => LanguageModel.availability({ expectedInputs: [{ type: 'text', languages: ['en'] }], expectedOutputs: [{ type: 'text', languages: ['en'] }] }));
+          for (const code of ['hi', 'ta', 'te', 'ml']) {
+            await safe('Prompt API text input ' + code, () => LanguageModel.availability({ expectedInputs: [{ type: 'text', languages: [code] }], expectedOutputs: [{ type: 'text', languages: ['en'] }] }));
+          }
+          await safe('Prompt API image input', () => LanguageModel.availability({ expectedInputs: [{ type: 'text', languages: ['en'] }, { type: 'image' }], expectedOutputs: [{ type: 'text', languages: ['en'] }] }));
+        }
+        log('== done ==\n');
+      });
+
+      $('translate').addEventListener('click', async () => {
+        const code = $('lang').value;
+        const text = $('text').value.trim();
+        log('== translate ' + code + ' -> en ' + stamp() + ' ==');
+        if (!('Translator' in self)) { log('Translator API is not available in this browser.\n'); return; }
+        let translator = null;
+        const t0 = performance.now();
+        await safe('create (downloads the language pack if needed)', async () => {
+          translator = await Translator.create({
+            sourceLanguage: code,
+            targetLanguage: 'en',
+            monitor(m) { m.addEventListener('downloadprogress', (e) => { log('  download ' + Math.round(e.loaded * 100) + '%'); }); }
+          });
+          return 'ready';
+        });
+        if (!translator) { log('== stopped ==\n'); return; }
+        const t1 = performance.now();
+        await safe('translate', async () => { const out = await translator.translate(text); log('  result: ' + out); return 'ok'; });
+        const t2 = performance.now();
+        await safe('translate again (warm)', async () => { await translator.translate(text); return 'ok'; });
+        log('timings: create ' + Math.round(t1 - t0) + ' ms, first translate ' + Math.round(t2 - t1) + ' ms');
+        if ('LanguageDetector' in self) {
+          await safe('detected language', async () => { const d = await LanguageDetector.create(); const r = await d.detect(text); return r.slice(0, 3).map((x) => x.detectedLanguage + ' ' + x.confidence.toFixed(2)).join(', '); });
+        }
+        log('== done ==\n');
+      });
+
+      $('read-image').addEventListener('click', async () => {
+        log('== image input ' + stamp() + ' ==');
+        const file = $('image').files[0];
+        if (!file) { log('Choose a made-up image first.\n'); return; }
+        if (!('LanguageModel' in self)) { log('Prompt API is not available in this browser.\n'); return; }
+        let session = null;
+        await safe('create session with image input', async () => {
+          session = await LanguageModel.create({ expectedInputs: [{ type: 'text', languages: ['en'] }, { type: 'image' }], expectedOutputs: [{ type: 'text', languages: ['en'] }] });
+          return 'ready';
+        });
+        if (!session) { log('== stopped ==\n'); return; }
+        await safe('prompt with image', async () => {
+          const bitmap = await createImageBitmap(file);
+          const answer = await session.prompt([{ role: 'user', content: [{ type: 'text', value: 'Write out exactly the text you can read in this image. Then say what the message asks the reader to do.' }, { type: 'image', value: bitmap }] }]);
+          log('  answer: ' + answer);
+          return 'ok';
+        });
+        log('== done ==\n');
+      });
+    </script>
+  </body>
+</html>

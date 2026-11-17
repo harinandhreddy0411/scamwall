@@ -1,12 +1,13 @@
 import { getRemoteConfig, fetchAndActivate, getBoolean, isSupported } from 'firebase/remote-config';
 
-const DEFAULTS = { strict_mode: false, cloud_enabled: true };
+const DEFAULTS = { strict_mode: false, cloud_enabled: true, model_injection_check: true };
 
 export function readUrlConfig() {
   const params = new URLSearchParams(location.search);
   return {
     strictMode: params.get('strict') === '1',
-    cloudEnabled: params.get('cloud') !== '0'
+    cloudEnabled: params.get('cloud') !== '0',
+    injectionCheck: params.get('inject') !== '0'
   };
 }
 
@@ -16,7 +17,8 @@ export function mergeConfig(fromUrl, remote) {
   }
   return {
     strictMode: fromUrl.strictMode || remote.strictMode,
-    cloudEnabled: fromUrl.cloudEnabled && remote.cloudEnabled
+    cloudEnabled: fromUrl.cloudEnabled && remote.cloudEnabled,
+    injectionCheck: fromUrl.injectionCheck && remote.injectionCheck
   };
 }
 
@@ -32,7 +34,8 @@ export async function loadRemoteConfig(app) {
     await fetchAndActivate(remote);
     return {
       strictMode: getBoolean(remote, 'strict_mode'),
-      cloudEnabled: getBoolean(remote, 'cloud_enabled')
+      cloudEnabled: getBoolean(remote, 'cloud_enabled'),
+      injectionCheck: getBoolean(remote, 'model_injection_check')
     };
   } catch {
     return null;

@@ -53,6 +53,29 @@ const LINK_KEYWORDS = /kyc|verify|login|update|secure|refund|claim|reward|prize|
 const URGENCY =
   /\b(?:urgent(?:ly)?|immediately|right now|act now|last chance|final notice|expires? today|(?:will|shall) be (?:blocked|suspended|disconnected|deactivated|closed|frozen|cut)|(?:blocked|suspended|disconnected) (?:today|tonight)|turant|jaldi|(?:block|band|freeze|suspend|cancel) ho jaye(?:ga|nga))\b/gi;
 
+const AI_WORDS =
+  '(?:ai|a\\.i\\.|llm|chatbot|bot|assistant|classifier|language model|reviewer|moderator|(?:scam|spam|fraud|phishing)[- ](?:detect\\w*|check\\w*|filter\\w*|scanner)(?: tool| system)?|detection (?:tool|system)|spam filter|safety (?:filter|system))';
+const AI_DIRECTED = new RegExp(
+  [
+    String.raw`(?<!(?:not|never|n'?t)\s+)\b(?:ignore|disregard|forget|override|bypass|discard)\b[^.!?\n]{0,30}?\b(?:previous|prior|above|earlier|preceding|all|any|your|these|the)\b[^.!?\n]{0,20}?\b(?:instructions?|prompts?|rules?|guidelines?|analysis)\b`,
+    String.raw`\b(?:rate|classify|classification|mark|label|treat|score|consider|report|answer|respond|reply|output|say)\b[^.!?\n]{0,12}?\b(?:this|it|the|every|all|each)\b[^.!?\n]{0,25}?\b(?:as|to be|with)\s+(?:safe|harmless|legit|legitimate|genuine|benign|clean|trusted|not (?:a )?(?:scam|spam|fraud|phishing)|low(?:[- ]risk)?)\b`,
+    String.raw`\b(?:scam_likelihood|asks_reader_to)\b`,
+    String.raw`\bas an? (?:ai|a\.i\.|llm|language model|assistant)\b`,
+    String.raw`\byou are (?:now )?(?:an? |the )?(?:helpful )?(?:ai|llm|chatbot|language model|classifier|assistant)\b(?!\s+(?:manager|professor|director|engineer|teacher|editor|commissioner|registrar|secretary|principal|vice))`,
+    String.raw`\b(?:note|message|instructions?|important|attention|attn|warning|request)\s*:?\s*(?:to|for)\s+(?:the |any |this |our )?` + AI_WORDS + String.raw`\b`,
+    String.raw`\bif you are (?:an? |the )?` + AI_WORDS + String.raw`\b`,
+    String.raw`\b` + AI_WORDS + String.raw`\b[^.!?\n]{0,30}?\b(?:ignore|skip|do not flag|don'?t flag|should (?:not )?(?:flag|mark|rate|block)|must (?:not )?(?:flag|mark|rate|block)|please (?:rate|mark|answer|output|respond))\b`,
+    String.raw`\b(?:do not|don'?t|never)\s+flag\s+this\b`,
+    String.raw`\b(?:instructions?|note|message)\s+(?:to|for)\s+the\s+(?:ai\s+)?model\s*:`,
+    String.raw`(?:^|[(\[\n])[ \t]*(?:reviewer|moderator|classifier|llm|assistant|ai)[ \t]*:`,
+    String.raw`\b(?:return|answer|respond|output)\s+(?:with\s+)?"?low\b`,
+    String.raw`\bignora(?:r)?\s+(?:todas\s+)?(?:las\s+)?instrucciones|\bignore[zr]?\s+(?:toutes\s+)?(?:les\s+)?instructions\s+pr[ée]c[ée]dentes|\bignorier(?:e|en)?\s+(?:alle\s+)?(?:vorherigen\s+)?anweisungen`,
+    String.raw`\bnew (?:rule|instructions?)\s*:`,
+    String.raw`<\/?(?:message|system|instructions?|prompt)>|<\|im_(?:start|end)\|>|\[\/?(?:inst|system)\]|\bMESSAGE>>>|<<<MESSAGE`
+  ].join('|'),
+  'gi'
+);
+
 export const SIGNAL_LABELS = {
   otp_ask: 'Asks for a code, PIN or personal documents',
   payment: 'Asks you to pay money',
@@ -63,7 +86,8 @@ export const SIGNAL_LABELS = {
   callback: 'Tells you to call or message a mobile number',
   windfall: 'Promises a prize or windfall',
   too_good: 'Promises easy money, returns or loans',
-  pretext: 'Uses a KYC or account-update pretext'
+  pretext: 'Uses a KYC or account-update pretext',
+  ai_directed: 'Tries to give instructions to an AI reader'
 };
 
 function scanAsk(text, verbs, targets) {
@@ -203,6 +227,10 @@ function linkSignals(text) {
   return found;
 }
 
+export function cleanText(raw) {
+  return raw.normalize('NFKC').replace(/[\u00ad\u200b-\u200f\u2060\ufeff]/g, '');
+}
+
 export function findSignals(text) {
   const signals = [];
   const add = (id, strength, ranges) => {
@@ -212,6 +240,7 @@ export function findSignals(text) {
   };
 
   add('otp_ask', 'strong', otpSignals(text));
+  add('ai_directed', 'strong', plainMatches(text, AI_DIRECTED));
 
   const strongPayment = strongPaymentSignals(text);
   if (strongPayment.length > 0) {

@@ -1,5 +1,5 @@
 import { CORPUS } from './corpus.js';
-import { findSignals } from './signals.js';
+import { cleanText, findSignals } from './signals.js';
 import {
   decide,
   decideWithModel,
@@ -10,6 +10,7 @@ import { askModel } from './model.js';
 
 const GRADES = ['ok', 'soft', 'FALSE ALARM', 'MISSED SCAM', 'OVERCONFIDENT'];
 const SETS = ['tune', 'holdout', 'hard', 'fresh'];
+const INJECTION_SETS = ['inject', 'held', 'held2'];
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -31,7 +32,8 @@ export function grade(expect, got) {
   return got === 'cant' ? 'soft' : 'OVERCONFIDENT';
 }
 
-export async function evaluate(text, model, { retries = 0 } = {}) {
+export async function evaluate(rawText, model, { retries = 0 } = {}) {
+  const text = cleanText(rawText);
   const signals = findSignals(text);
   const answer = await askModel(model, text, retries);
   return {
@@ -48,6 +50,7 @@ export function describeAnswer(answer) {
   if (answer.opinion) {
     return (
       answer.opinion.likelihood + ' [asks: ' + describeAsks(answer.opinion) + ']' +
+      (answer.opinion.directed ? ' [addresses reviewer]' : '') +
       ' ' + answer.source + ' ' + answer.ms + 'ms' +
       (answer.attempts > 1 ? ' (after retry)' : '')
     );
@@ -86,7 +89,8 @@ export function summarize(rows) {
     ['combined', (row) => row.result.combined.key],
     ['asks-aware', (row) => row.result.asksKey]
   ];
-  for (const set of SETS) {
+  const present = [...new Set(rows.map((row) => row.item.set))];
+  for (const set of present) {
     const subset = rows.filter((row) => row.item.set === set);
     if (subset.length === 0) {
       continue;
@@ -117,6 +121,8 @@ export function summarize(rows) {
   );
   return lines;
 }
+
+export { INJECTION_SETS };
 
 export async function runCorpus(
   model,

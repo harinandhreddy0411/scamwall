@@ -1,11 +1,12 @@
 import { init } from './firebase.js';
-import { findSignals, SIGNAL_LABELS } from './signals.js';
+import { cleanText, findSignals, SIGNAL_LABELS } from './signals.js';
 import { hasUnsupportedScript } from './script.js';
 import { redact, describeRedactions } from './redact.js';
 import { buildMarks } from './marks.js';
 import { loadRemoteConfig, mergeConfig, readUrlConfig } from './config.js';
 import { SAMPLES } from './samples.js';
 import { askModel } from './model.js';
+import { compare, describeMessage } from './resolver.js';
 import { buildPrompt } from './structured.js';
 import { LABELS, decideWithModel, describeAsks, mergeOpinions } from './verdict.js';
 
@@ -37,7 +38,30 @@ const REASONS = {
   clear: 'The rules and the AI found nothing alarming in the text.',
   no_model: 'The AI check did not run, and the rules found nothing concrete.',
   script: 'The rules and the on-device AI read English. A cloud check can read this language.',
-  strict: 'Strict mode is on, so "no red flags" is never shown.'
+  strict: 'Strict mode is on, so "no red flags" is never shown.',
+  directed:
+    'Part of this message is written for an AI reader, not for you. A real sender has no reason to do that.',
+  mismatch:
+    'The message gives a number or website that is not the one you typed from your card or the official app.',
+  matched:
+    'The only weak sign was a number or link, and it matches what you typed. That does not prove the message is genuine.'
+};
+
+const ADVICE_BY_CODE = {
+  otp: 'Only enter this code in an app or site you opened yourself. Never read it out to someone who contacted you.',
+  weak_only:
+    'Contact the sender through a number on your card or the official app, never through details in this message.',
+  unsure:
+    'Contact the sender through a number on your card or the official app, never through details in this message.',
+  no_model:
+    'Run it again in desktop Chrome with the on-device AI, or ask the cloud for a second opinion below.',
+  script:
+    'Ask the cloud for a read of this language below, or ask someone who reads it. Do not act on it until then.',
+  strict: 'Strict mode never shows "no red flags". Check through the official app before you act.',
+  directed:
+    'Do not trust this message. Contact the organisation through its official app or a number you already trust.',
+  mismatch:
+    'Do not use the number or link in this message. Contact the organisation through its official app or the number on your card.'
 };
 
 const ADVICE = {
@@ -69,11 +93,20 @@ const els = {
   vGlyph: $('v-glyph'),
   vLabel: $('v-label'),
   vReason: $('v-reason'),
+  vNotice: $('v-notice'),
   vUpdate: $('v-update'),
   vWhy: $('v-why'),
   vAdvice: $('v-advice'),
   vDetails: $('v-details'),
   second: $('second'),
+  checkself: $('checkself'),
+  csFound: $('cs-found'),
+  csNumberRow: $('cs-number-row'),
+  csNumber: $('cs-number'),
+  csSiteRow: $('cs-site-row'),
+  csSite: $('cs-site'),
+  csRun: $('cs-run'),
+  csResult: $('cs-result'),
   cloudIdle: $('cloud-idle'),
   cloudOffer: $('cloud-offer'),
   cloudDone: $('cloud-done'),
@@ -91,7 +124,7 @@ const els = {
 
 const ledger = [];
 
-let config = { strictMode: false, cloudEnabled: true };
+let config = { strictMode: false, cloudEnabled: true, injectionCheck: true };
 let models = null;
 let devicePromise = null;
 let deviceError = '';
@@ -167,11 +200,13 @@ function setBusy(value) {
     els.send,
     els.keep,
     els.second,
+    els.csRun,
     ...els.samples.querySelectorAll('button')
   ];
   controls.forEach((control) => {
     control.disabled = value;
   });
+  els.second.disabled = value || isOffline();
 }
 
 const IDLE_TEXT = {
@@ -179,11 +214,18 @@ const IDLE_TEXT = {
     'Nothing is here. Your message has not left this device. If the first check is not enough, you can send a redacted copy for a second opinion from a larger AI.',
   red:
     'Nothing is here. The rules found a strong red flag, and a second opinion could not change that, so nothing was sent. Try a made-up message that ends at "Looks suspicious" or "Can\u2019t judge" to see the cloud path.',
-  off: 'The cloud second opinion is switched off. Everything stays on this device.'
+  off: 'The cloud second opinion is switched off. Everything stays on this device.',
+  offline: 'You are offline, so the cloud cannot be reached. Everything stays on this device.'
 };
 
 function setIdleText(kind) {
-  els.cloudIdle.querySelector('p').textContent = config.cloudEnabled ? IDLE_TEXT[kind] : IDLE_TEXT.off;
+  let text = IDLE_TEXT[kind];
+  if (!config.cloudEnabled) {
+    text = IDLE_TEXT.off;
+  } else if (isOffline() && kind !== 'red') {
+    text = IDLE_TEXT.offline;
+  }
+  els.cloudIdle.querySelector('p').textContent = text;
 }
 
 function setCloudView(name) {
@@ -215,12 +257,163 @@ function ensureDevice() {
   return devicePromise;
 }
 
+function isOffline() {
+  return navigator.onLine === false;
+}
+
+function deviceAnswered() {
+  return Boolean(state.device && state.device.opinion);
+}
+
+function secondLabel() {
+  if (isOffline()) {
+    return 'Cloud unreachable: you are offline';
+  }
+  if (state.script) {
+    return 'Send a redacted copy to the cloud to read this language';
+  }
+  return deviceAnswered()
+    ? 'Get a second opinion from the cloud'
+    : 'Send a redacted copy to the cloud for an AI read';
+}
+
+function noticeText() {
+  if (state.script || deviceAnswered() || (state.cloud && state.cloud.opinion)) {
+    return '';
+  }
+  if (!models) {
+    return 'The AI is not set up here, so only the rules ran. The answer below is weaker than usual.';
+  }
+  const why = deviceError
+    ? 'This browser cannot run the on-device AI. Desktop Chrome with Gemini Nano can.'
+    : 'The on-device AI did not answer.';
+  return 'Only the rules ran. ' + why + ' The answer below is weaker than usual.';
+}
+
+function applyCheck(result) {
+  const check = state.check;
+  if (!check || result.key === 'red') {
+    return result;
+  }
+  if (check.mismatch && (result.key === 'none' || result.key === 'cant')) {
+    return {
+      key: 'warn',
+      code: 'mismatch',
+      reason: 'the number or website in the message is not the one you typed'
+    };
+  }
+  if (check.matched && result.code === 'weak_only') {
+    const kinds = new Set(
+      state.signals.filter((signal) => signal.strength === 'weak').map((signal) => signal.id)
+    );
+    const only = kinds.size === 1 ? [...kinds][0] : null;
+    if ((only === 'callback' && check.number === 'match') || (only === 'link' && check.site === 'match')) {
+      return {
+        key: 'none',
+        code: 'matched',
+        reason: 'the only weak sign matches what you typed from your card or the official app'
+      };
+    }
+  }
+  return result;
+}
+
+function listText(items) {
+  return items.length > 1
+    ? items.slice(0, -1).join(', ') + ' and ' + items[items.length - 1]
+    : items[0];
+}
+
+function renderCheckself(result) {
+  const { numbers, hosts } = state.found;
+  const show = result.key !== 'red' && (numbers.length > 0 || hosts.length > 0);
+  els.checkself.hidden = !show;
+  if (!show) {
+    return;
+  }
+  const parts = [];
+  if (numbers.length > 0) {
+    parts.push('the number' + (numbers.length > 1 ? 's ' : ' ') + listText(numbers.map((n) => n.raw)));
+  }
+  if (hosts.length > 0) {
+    parts.push('the website' + (hosts.length > 1 ? 's ' : ' ') + listText(hosts.map((h) => h.host)));
+  }
+  els.csFound.textContent = 'The message gives ' + parts.join(' and ') + '.';
+  els.csNumberRow.hidden = numbers.length === 0;
+  els.csSiteRow.hidden = hosts.length === 0;
+  renderCheckResult();
+}
+
+const CHECK_LINES = {
+  number: {
+    match: 'The number matches the one you typed.',
+    mismatch: 'The number in the message does not match the one you typed.',
+    invalid: 'Type the whole phone number, at least 6 digits.'
+  },
+  site: {
+    match: 'The website matches the one you typed.',
+    mismatch: 'The website in the message is not the one you typed.',
+    invalid: 'Type the website, for example the name of the official site.'
+  }
+};
+
+function renderCheckResult() {
+  const check = state.check;
+  const lines = [];
+  if (check) {
+    ['number', 'site'].forEach((kind) => {
+      const line = CHECK_LINES[kind][check[kind]];
+      if (line) {
+        lines.push(line);
+      }
+    });
+    if (check.matched) {
+      lines.push('A match does not prove the message is genuine.');
+    }
+    if (state.checkNote) {
+      lines.push(state.checkNote);
+    }
+  }
+  els.csResult.replaceChildren(
+    ...lines.map((line) => {
+      const item = document.createElement('li');
+      item.textContent = line;
+      return item;
+    })
+  );
+}
+
+function runSelfCheck() {
+  if (!state || busy) {
+    return;
+  }
+  const before = state.result ? state.result.key : null;
+  state.check = compare(state.text, { number: els.csNumber.value, site: els.csSite.value });
+  state.checkNote = '';
+  renderVerdict(Boolean(state.cloud));
+  if (state.result.key !== before) {
+    state.checkNote = 'Verdict now: ' + LABELS[state.result.key] + '.';
+    renderCheckResult();
+  }
+}
+
+function refreshNetwork() {
+  if (state && !busy && !els.verdict.hidden && els.cloudOffer.hidden) {
+    renderVerdict(Boolean(state.cloud));
+  } else if (els.cloudOffer.hidden) {
+    setIdleText('default');
+  }
+}
+
 function computeVerdict() {
-  const opinion = mergeOpinions(state.device?.opinion ?? null, state.cloud?.opinion ?? null);
+  const rawOpinion = mergeOpinions(state.device?.opinion ?? null, state.cloud?.opinion ?? null);
+  const opinion =
+    rawOpinion && !config.injectionCheck ? { ...rawOpinion, directed: false } : rawOpinion;
   let result = decideWithModel(state.signals, opinion, state.text);
   if (state.script && !opinion && result.code === 'no_model') {
     result = { key: 'cant', code: 'script', reason: 'the text is in a language the checker cannot read' };
   }
+  result = applyCheck(result);
   if (config.strictMode && result.key === 'none') {
     result = { key: 'cant', code: 'strict', reason: 'strict mode is on' };
   }
@@ -279,6 +472,7 @@ function describeOpinion(answer, name) {
       '. ' + (answer.opinion.asks.length > 0
         ? 'It sees the message asking you to ' + describeAsks(answer.opinion)
         : 'It sees no request in the message') +
+      (answer.opinion.directed ? '. It saw text written for an AI reader' : '') +
       '. (' + (answer.ms / 1000).toFixed(1) + ' s)'
     );
   }
@@ -323,20 +517,27 @@ function renderVerdict(updated) {
   els.vUpdate.hidden = !updated;
   els.vWhy.replaceChildren(...state.marks.map(describeWhy));
   els.vWhy.hidden = state.marks.length === 0;
-  els.vAdvice.textContent = ADVICE[result.key];
+  els.vAdvice.textContent = ADVICE_BY_CODE[result.code] ?? ADVICE[result.key];
   renderDetails(result);
 
   const canAsk = models !== null && config.cloudEnabled && !state.cloud && result.key !== 'red';
   els.second.hidden = !canAsk;
   setIdleText(result.key === 'red' ? 'red' : 'default');
-  els.second.textContent = state.script
-    ? 'Send a redacted copy to the cloud to read this language'
-    : 'Get a second opinion from the cloud';
+  els.second.textContent = secondLabel();
+  els.second.disabled = busy || isOffline();
+  els.vNotice.textContent = noticeText();
+  els.vNotice.hidden = els.vNotice.textContent === '';
+  renderCheckself(result);
   els.verdict.hidden = false;
 }
 
 function resetCheck() {
   state = null;
+  els.csNumber.value = '';
+  els.csSite.value = '';
+  els.csResult.replaceChildren();
+  els.checkself.hidden = true;
+  els.vNotice.hidden = true;
   els.marked.hidden = true;
   els.message.hidden = false;
   els.check.hidden = false;
@@ -351,7 +552,7 @@ async function runCheck() {
   if (busy) {
     return;
   }
-  const text = els.message.value.trim();
+  const text = cleanText(els.message.value).trim();
   if (!text) {
     setStatus('Paste a message first.', 'error');
     els.message.focus();
@@ -363,6 +564,9 @@ async function runCheck() {
     text,
     signals: findSignals(text),
     script: hasUnsupportedScript(text),
+    found: describeMessage(text),
+    check: null,
+    checkNote: '',
     device: null,
     cloud: null,
     result: null
@@ -394,17 +598,7 @@ async function runCheck() {
   els.edit.hidden = false;
   renderVerdict(false);
 
-  if (!state.script && !usedDevice) {
-    setStatus(
-      models
-        ? 'The on-device AI is not available here (' + (deviceError || 'unknown reason') +
-            '). Only the rules ran.'
-        : 'The AI is not set up, so only the rules ran.',
-      'error'
-    );
-  } else {
-    setStatus('');
-  }
+  setStatus('');
   setBusy(false);
   els.vLabel.focus();
 }
@@ -414,6 +608,9 @@ function updateRequest() {
 }
 
 function openOffer() {
+  if (isOffline()) {
+    return;
+  }
   const { text, items } = redact(state.text);
   els.preview.value = text;
   els.redactNote.textContent = describeRedactions(items);
@@ -449,6 +646,11 @@ async function sendToCloud() {
     return;
   }
 
+  if (isOffline()) {
+    els.offerError.textContent = 'You are offline, so nothing was sent. Reconnect and try again.';
+    els.offerError.hidden = false;
+    return;
+  }
   setBusy(true);
   els.offerError.hidden = true;
   setGate(true);
@@ -539,6 +741,17 @@ els.second.addEventListener('click', () => {
 els.keep.addEventListener('click', closeOffer);
 els.send.addEventListener('click', sendToCloud);
 els.preview.addEventListener('input', updateRequest);
+els.csRun.addEventListener('click', runSelfCheck);
+[els.csNumber, els.csSite].forEach((input) =>
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      runSelfCheck();
+    }
+  })
+);
+window.addEventListener('offline', refreshNetwork);
+window.addEventListener('online', refreshNetwork);
 
 async function start() {
   const fromUrl = readUrlConfig();

@@ -1,7 +1,8 @@
 import { init } from './firebase.js';
 import { LABELS } from './verdict.js';
 import { SIGNAL_LABELS } from './signals.js';
-import { describeAnswer, evaluate, formatReport, runCorpus } from './harness.js';
+import { INJECTION_SETS, describeAnswer, evaluate, formatReport, runCorpus } from './harness.js';
+import { formatRealReport, parseMessages, runReal } from './realset.js';
 
 const SAMPLE =
   'URGENT: Your ExampleBank account will be blocked today. Update your KYC now at http://examplebank-kyc-verify.example/login and share the OTP you receive.';
@@ -12,6 +13,10 @@ const els = {
   checkOne: document.getElementById('check-one'),
   runDevice: document.getElementById('run-device'),
   runCloud: document.getElementById('run-cloud'),
+  runInject: document.getElementById('run-inject'),
+  runReal: document.getElementById('run-real'),
+  realInput: document.getElementById('real-input'),
+  realShowText: document.getElementById('real-show-text'),
   copyReport: document.getElementById('copy-report'),
   clearReport: document.getElementById('clear-report'),
   report: document.getElementById('report'),
@@ -22,7 +27,9 @@ const actionButtons = [
   els.prepare,
   els.checkOne,
   els.runDevice,
-  els.runCloud
+  els.runCloud,
+  els.runInject,
+  els.runReal
 ];
 
 let models = null;
@@ -121,6 +128,12 @@ els.runDevice.addEventListener('click', () =>
   guarded(() => runAll('on-device', models.structuredOnDevice, {}, true))
 );
 
+els.runInject.addEventListener('click', () =>
+  guarded(() =>
+    runAll('on-device, injection cases', models.structuredOnDevice, { sets: INJECTION_SETS }, true)
+  )
+);
+
 els.runCloud.addEventListener('click', () =>
   guarded(() =>
     runAll('cloud, hard and fresh sets', models.structuredCloud, {
@@ -129,6 +142,23 @@ els.runCloud.addEventListener('click', () =>
       retries: 1
     }, false)
   )
+);
+
+els.runReal.addEventListener('click', () =>
+  guarded(async () => {
+    const items = parseMessages(els.realInput.value);
+    if (items.length === 0) {
+      setStatus('Paste at least one message first. Put --- on its own line between messages.');
+      return;
+    }
+    setStatus('My messages: warming up the model (first call is slow)...');
+    await evaluate('Hello, are we still meeting at 6 PM?', models.structuredOnDevice);
+    const rows = await runReal(items, models.structuredOnDevice, (n, number, total) =>
+      setStatus('My messages: message ' + n + ' (' + number + ' of ' + total + ')...')
+    );
+    appendReport(formatRealReport(rows, els.realShowText.checked));
+    setStatus('Done. Scroll up to the report and click "Copy report".');
+  })
 );
 
 els.copyReport.addEventListener('click', async () => {
@@ -147,7 +177,7 @@ els.clearReport.addEventListener('click', () => {
 els.message.value = SAMPLE;
 
 try {
-  models = init();
+  models = import.meta.env.DEV && window.__fakeModels ? window.__fakeModels : init();
   setStatus('Ready. Click "1. Prepare on-device model" first.');
 } catch (error) {
   setStatus('Setup problem: ' + ((error && error.message) || String(error)));

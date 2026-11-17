@@ -146,12 +146,30 @@
         </button>
         <button id="run-device" type="button">2. Run all 61: on-device</button>
         <button id="run-cloud" type="button">3. Run hard + fresh (37): cloud</button>
+        <button id="run-inject" type="button">4. Run injection cases (24): on-device</button>
         <button id="copy-report" type="button">Copy report</button>
         <button id="clear-report" type="button">Clear report</button>
       </div>
 
       <p id="status" role="status">Starting...</p>
       <pre id="report"></pre>
+
+      <h2>My messages (real, anonymised)</h2>
+      <p class="hint">
+        Runs only on this device. Nothing is sent, saved or logged. Before pasting, replace real
+        names, phone numbers, bank names and links with made-up ones, but keep the wording and
+        structure. Put --- on its own line between messages. Optionally start a message with
+        #scam, #ok or #unsure so the report can grade it.
+      </p>
+      <label for="real-input">Messages</label>
+      <textarea id="real-input"></textarea>
+      <p class="hint">
+        <label><input type="checkbox" id="real-show-text" /> Show the first 40 characters of each
+        message in the report</label>
+      </p>
+      <div class="buttons">
+        <button id="run-real" type="button">Run my messages: on-device</button>
+      </div>
 
       <h2>Try one message</h2>
       <p class="hint">Made-up text only. Uses the on-device model.</p>

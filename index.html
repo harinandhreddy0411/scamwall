@@ -66,9 +66,30 @@
             <h3 id="v-label" tabindex="-1"></h3>
           </div>
           <p id="v-reason" class="reason"></p>
+          <p id="v-notice" class="notice" hidden></p>
           <p id="v-update" class="update" hidden>Includes the cloud's second opinion.</p>
           <ol id="v-why" class="why"></ol>
           <p id="v-advice" class="advice"></p>
+          <section id="checkself" class="checkself" hidden aria-labelledby="cs-title">
+            <h4 id="cs-title">Check it yourself</h4>
+            <p id="cs-found" class="cs-found"></p>
+            <p class="fine">
+              Type what is printed on your card or shown in the official app. It stays on this
+              device and is never sent anywhere.
+            </p>
+            <div id="cs-number-row" class="cs-row" hidden>
+              <label for="cs-number">Official phone number</label>
+              <input id="cs-number" type="text" inputmode="tel" autocomplete="off" spellcheck="false" maxlength="30" />
+            </div>
+            <div id="cs-site-row" class="cs-row" hidden>
+              <label for="cs-site">Official website</label>
+              <input id="cs-site" type="text" inputmode="url" autocomplete="off" spellcheck="false" maxlength="100" />
+            </div>
+            <button id="cs-run" class="btn" type="button">Compare</button>
+            <div role="status" aria-live="polite">
+              <ul id="cs-result" class="cs-result"></ul>
+            </div>
+          </section>
           <button id="second" class="btn gate-btn" type="button" hidden></button>
           <details class="how">
             <summary>How this was decided</summary>
@@ -108,7 +129,7 @@
           <h3>This is what would cross the wall</h3>
           <p id="redact-note" class="redact-note"></p>
           <label class="sr-only" for="preview">Text that will be sent. You can edit it.</label>
-          <textarea id="preview" rows="7" spellcheck="false"></textarea>
+          <textarea id="preview" rows="7" maxlength="1500" spellcheck="false"></textarea>
           <p class="fine">
             Names are not found automatically. Remove anything personal before you send.
           </p>
