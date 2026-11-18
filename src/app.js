@@ -39,8 +39,6 @@ const REASONS = {
   no_model: 'The AI check did not run, and the rules found nothing concrete.',
   script: 'The rules and the on-device AI read English. A cloud check can read this language.',
   strict: 'Strict mode is on, so "no red flags" is never shown.',
-  directed:
-    'Part of this message is written for an AI reader, not for you. A real sender has no reason to do that.',
   mismatch:
     'The message gives a number or website that is not the one you typed from your card or the official app.',
   matched:
@@ -58,8 +56,6 @@ const ADVICE_BY_CODE = {
   script:
     'Ask the cloud for a read of this language below, or ask someone who reads it. Do not act on it until then.',
   strict: 'Strict mode never shows "no red flags". Check through the official app before you act.',
-  directed:
-    'Do not trust this message. Contact the organisation through its official app or a number you already trust.',
   mismatch:
     'Do not use the number or link in this message. Contact the organisation through its official app or the number on your card.'
 };
@@ -124,7 +120,7 @@ const els = {
 
 const ledger = [];
 
-let config = { strictMode: false, cloudEnabled: true, injectionCheck: true };
+let config = { strictMode: false, cloudEnabled: true };
 let models = null;
 let devicePromise = null;
 let deviceError = '';
@@ -406,9 +402,7 @@ function refreshNetwork() {
 }
 
 function computeVerdict() {
-  const rawOpinion = mergeOpinions(state.device?.opinion ?? null, state.cloud?.opinion ?? null);
-  const opinion =
-    rawOpinion && !config.injectionCheck ? { ...rawOpinion, directed: false } : rawOpinion;
+  const opinion = mergeOpinions(state.device?.opinion ?? null, state.cloud?.opinion ?? null);
   let result = decideWithModel(state.signals, opinion, state.text);
   if (state.script && !opinion && result.code === 'no_model') {
     result = { key: 'cant', code: 'script', reason: 'the text is in a language the checker cannot read' };
@@ -472,7 +466,6 @@ function describeOpinion(answer, name) {
       '. ' + (answer.opinion.asks.length > 0
         ? 'It sees the message asking you to ' + describeAsks(answer.opinion)
         : 'It sees no request in the message') +
-      (answer.opinion.directed ? '. It saw text written for an AI reader' : '') +
       '. (' + (answer.ms / 1000).toFixed(1) + ' s)'
     );
   }

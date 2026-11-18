@@ -50,7 +50,6 @@ export function describeAnswer(answer) {
   if (answer.opinion) {
     return (
       answer.opinion.likelihood + ' [asks: ' + describeAsks(answer.opinion) + ']' +
-      (answer.opinion.directed ? ' [addresses reviewer]' : '') +
       ' ' + answer.source + ' ' + answer.ms + 'ms' +
       (answer.attempts > 1 ? ' (after retry)' : '')
     );
