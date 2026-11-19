@@ -3,6 +3,7 @@ import { LABELS } from './verdict.js';
 import { SIGNAL_LABELS } from './signals.js';
 import { INJECTION_SETS, describeAnswer, evaluate, formatReport, runCorpus } from './harness.js';
 import { formatRealReport, parseMessages, runReal } from './realset.js';
+import { checkImageFile, compareTranscript, readImage } from './image.js';
 
 const SAMPLE =
   'URGENT: Your ExampleBank account will be blocked today. Update your KYC now at http://examplebank-kyc-verify.example/login and share the OTP you receive.';
@@ -15,6 +16,9 @@ const els = {
   runCloud: document.getElementById('run-cloud'),
   runInject: document.getElementById('run-inject'),
   runReal: document.getElementById('run-real'),
+  runImages: document.getElementById('run-images'),
+  imageFiles: document.getElementById('image-files'),
+  imageExpected: document.getElementById('image-expected'),
   realInput: document.getElementById('real-input'),
   realShowText: document.getElementById('real-show-text'),
   copyReport: document.getElementById('copy-report'),
@@ -29,7 +33,8 @@ const actionButtons = [
   els.runDevice,
   els.runCloud,
   els.runInject,
-  els.runReal
+  els.runReal,
+  els.runImages
 ];
 
 let models = null;
@@ -157,6 +162,57 @@ els.runReal.addEventListener('click', () =>
       setStatus('My messages: message ' + n + ' (' + number + ' of ' + total + ')...')
     );
     appendReport(formatRealReport(rows, els.realShowText.checked));
+    setStatus('Done. Scroll up to the report and click "Copy report".');
+  })
+);
+
+els.runImages.addEventListener('click', () =>
+  guarded(async () => {
+    const files = Array.from(els.imageFiles.files);
+    if (files.length === 0) {
+      setStatus('Choose at least one made-up image first.');
+      return;
+    }
+    const expected = els.imageExpected.value
+      .replace(/\r\n?/g, '\n')
+      .split(/^[ \t]*---[ \t]*$/m)
+      .map((part) => part.trim());
+    setStatus('Images: warming up the model (first call is slow)...');
+    await models.onDevice.initializeDeviceModel();
+    appendReport('== Screenshot reading, ' + files.length + ' image(s) ==');
+    let exactCount = 0;
+    let digitCount = 0;
+    let graded = 0;
+    for (let i = 0; i < files.length; i += 1) {
+      const file = files[i];
+      const problem = checkImageFile(file);
+      setStatus('Images: reading ' + (i + 1) + ' of ' + files.length + '...');
+      if (problem) {
+        appendReport('Image ' + (i + 1) + ' (' + file.name + '): skipped. ' + problem);
+        continue;
+      }
+      const result = await readImage(models.onDevice, file);
+      const head = 'Image ' + (i + 1) + ' (' + file.name + ', ' + Math.round(file.size / 1024) + ' KB)';
+      if (result.error) {
+        appendReport(head + ': ERROR ' + result.error);
+        continue;
+      }
+      let verdict = '';
+      if (expected[i]) {
+        const cmp = compareTranscript(expected[i], result.text);
+        graded += 1;
+        exactCount += cmp.exact ? 1 : 0;
+        digitCount += cmp.digitsOk ? 1 : 0;
+        verdict =
+          ' | exact text: ' + (cmp.exact ? (cmp.exactCase ? 'yes' : 'yes, but capital letters changed') : 'NO') +
+          ' | digits: ' + (cmp.digitsOk ? 'unchanged' : 'CHANGED (wanted ' + cmp.want.join(' ') + ', got ' + cmp.have.join(' ') + ')');
+      }
+      appendReport(head + ': ' + result.ms + ' ms, source ' + result.source + verdict);
+      appendReport(result.text.split('\n').map((line) => '    ' + line).join('\n'));
+    }
+    if (graded > 0) {
+      appendReport('Summary: exact text ' + exactCount + '/' + graded + ', digits unchanged ' + digitCount + '/' + graded);
+    }
     setStatus('Done. Scroll up to the report and click "Copy report".');
   })
 );

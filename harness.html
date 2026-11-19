@@ -171,6 +171,21 @@
         <button id="run-real" type="button">Run my messages: on-device</button>
       </div>
 
+      <h2>Screenshots (made-up only)</h2>
+      <p class="hint">
+        Reads each image on this device with the same code the app uses. Use only made-up
+        screenshots. Optionally type the exact text of each image below, in the same order as the
+        files, with --- on its own line between them, and the report will say whether the text and
+        every digit came back unchanged.
+      </p>
+      <label for="image-files">Images (PNG or JPEG)</label>
+      <input id="image-files" type="file" accept="image/png,image/jpeg" multiple />
+      <label for="image-expected">Expected text (optional)</label>
+      <textarea id="image-expected"></textarea>
+      <div class="buttons">
+        <button id="run-images" type="button">Read the images: on-device</button>
+      </div>
+
       <h2>Try one message</h2>
       <p class="hint">Made-up text only. Uses the on-device model.</p>
       <label for="message">Message</label>

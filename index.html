@@ -57,7 +57,14 @@
           <button id="check" class="btn primary" type="button">Check this message</button>
           <button id="edit" class="btn" type="button" hidden>Edit message</button>
           <button id="clear" class="btn quiet" type="button">Clear</button>
+          <button id="image-btn" class="btn" type="button" hidden>Read a screenshot</button>
+          <input id="image-file" type="file" accept="image/png,image/jpeg" hidden />
         </div>
+        <p id="image-note" class="image-note" hidden>
+          A screenshot is read by the on-device AI and never leaves this device. You can also paste
+          or drop one into the box. English only. Check the text it finds against your screenshot
+          before you press Check.
+        </p>
         <p id="status" class="status" role="status" aria-live="polite"></p>
 
         <section id="verdict" class="verdict" hidden aria-labelledby="v-label">

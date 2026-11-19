@@ -8,6 +8,7 @@ import { SAMPLES } from './samples.js';
 import { askModel } from './model.js';
 import { compare, describeMessage } from './resolver.js';
 import { buildPrompt } from './structured.js';
+import { checkImageFile, imageInputAvailable, readImage } from './image.js';
 import { LABELS, decideWithModel, describeAsks, mergeOpinions } from './verdict.js';
 
 const GLYPHS = {
@@ -83,6 +84,9 @@ const els = {
   check: $('check'),
   edit: $('edit'),
   clear: $('clear'),
+  imageBtn: $('image-btn'),
+  imageFile: $('image-file'),
+  imageNote: $('image-note'),
   samples: $('samples'),
   status: $('status'),
   verdict: $('verdict'),
@@ -118,6 +122,7 @@ const els = {
   ledger: $('ledger')
 };
 
+const IMAGE_KINDS = /^image\//;
 const ledger = [];
 
 let config = { strictMode: false, cloudEnabled: true };
@@ -126,6 +131,8 @@ let devicePromise = null;
 let deviceError = '';
 let busy = false;
 let state = null;
+let imageAvailable = false;
+let lastImageText = '';
 
 function createModels() {
   if (import.meta.env.DEV && window.__fakeModels) {
@@ -197,6 +204,7 @@ function setBusy(value) {
     els.keep,
     els.second,
     els.csRun,
+    els.imageBtn,
     ...els.samples.querySelectorAll('button')
   ];
   controls.forEach((control) => {
@@ -274,6 +282,20 @@ function secondLabel() {
 }
 
 function noticeText() {
+  const lines = [];
+  if (state.fromImage) {
+    lines.push(
+      'This text was read from a screenshot by the on-device AI. A misread word or digit can change the result, so compare it with your screenshot.'
+    );
+  }
+  const model = modelNotice();
+  if (model) {
+    lines.push(model);
+  }
+  return lines.join(' ');
+}
+
+function modelNotice() {
   if (state.script || deviceAnswered() || (state.cloud && state.cloud.opinion)) {
     return '';
   }
@@ -558,6 +580,7 @@ async function runCheck() {
     signals: findSignals(text),
     script: hasUnsupportedScript(text),
     found: describeMessage(text),
+    fromImage: lastImageText !== '' && text === lastImageText,
     check: null,
     checkNote: '',
     device: null,
@@ -594,6 +617,56 @@ async function runCheck() {
   setStatus('');
   setBusy(false);
   els.vLabel.focus();
+}
+
+async function loadImage(file) {
+  if (busy || !imageAvailable) {
+    return;
+  }
+  const problem = checkImageFile(file);
+  if (problem) {
+    setStatus(problem, 'error');
+    return;
+  }
+  setBusy(true);
+  setStatus('Waking up the on-device AI. The first use takes about 20 seconds.');
+  const ready = await ensureDevice();
+  if (!ready) {
+    setStatus(
+      'The on-device AI is not available here, so the screenshot cannot be read. Paste the message text instead.',
+      'error'
+    );
+    setBusy(false);
+    return;
+  }
+  setStatus('Reading the screenshot on this device.');
+  const result = await readImage(models.onDevice, file);
+  setBusy(false);
+  if (result.error) {
+    setStatus(
+      'The screenshot could not be read (' + shortError(result.error) + '). Paste the message text instead.',
+      'error'
+    );
+    return;
+  }
+  if (!result.text) {
+    setStatus('No text was found in that image. Crop it to the message, or paste the text instead.', 'error');
+    return;
+  }
+  resetCheck();
+  els.message.value = result.text;
+  lastImageText = cleanText(result.text).trim();
+  addLedger({ kind: 'local', requests: 0, text: 'Read a screenshot on this device. The image stayed here.' });
+  setStatus(
+    'The box now holds the text read from your screenshot' +
+      (result.truncated ? ' (only the first 1,500 characters)' : '') +
+      '. Compare it with the screenshot, fix anything wrong, then press "Check this message".'
+  );
+  els.message.focus();
+}
+
+function imageFromEvent(items) {
+  return Array.from(items ?? []).find((item) => item && IMAGE_KINDS.test(item.type || ''));
 }
 
 function updateRequest() {
@@ -702,6 +775,45 @@ function buildSamples() {
   });
 }
 
+els.imageBtn.addEventListener('click', () => {
+  if (!busy) {
+    els.imageFile.click();
+  }
+});
+els.imageFile.addEventListener('change', () => {
+  const file = els.imageFile.files[0];
+  els.imageFile.value = '';
+  if (file) {
+    loadImage(file);
+  }
+});
+els.message.addEventListener('paste', (event) => {
+  if (!imageAvailable) {
+    return;
+  }
+  const item = imageFromEvent(event.clipboardData && event.clipboardData.items);
+  if (item) {
+    event.preventDefault();
+    loadImage(item.getAsFile());
+  }
+});
+els.message.addEventListener('dragover', (event) => {
+  if (imageAvailable && imageFromEvent(event.dataTransfer && event.dataTransfer.items)) {
+    event.preventDefault();
+  }
+});
+els.message.addEventListener('drop', (event) => {
+  if (!imageAvailable) {
+    return;
+  }
+  const file = Array.from((event.dataTransfer && event.dataTransfer.files) || []).find((f) =>
+    IMAGE_KINDS.test(f.type)
+  );
+  if (file) {
+    event.preventDefault();
+    loadImage(file);
+  }
+});
 els.check.addEventListener('click', runCheck);
 els.message.addEventListener('keydown', (event) => {
   if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
@@ -757,6 +869,11 @@ async function start() {
     models = null;
     setStatus('Setup problem: ' + shortError(error) + '. Only the rules will run.', 'error');
   }
+  imageAvailable =
+    Boolean(models) &&
+    ((import.meta.env.DEV && Boolean(window.__fakeImage)) || (await imageInputAvailable()));
+  els.imageBtn.hidden = !imageAvailable;
+  els.imageNote.hidden = !imageAvailable;
   applyConfig(fromUrl);
   if (models && models.app) {
     const remote = await loadRemoteConfig(models.app);

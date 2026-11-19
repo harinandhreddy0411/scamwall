@@ -47,10 +47,22 @@ export function parseOpinion(raw) {
   return { likelihood: parsed.scam_likelihood, asks };
 }
 
+const OTP_WORD = String.raw`(?:otp|one[- ]time (?:password|code|pin)|verification code|login code)`;
+const OTP_WARNING = new RegExp(
+  String.raw`\b(?:never|do not|don'?t|not to)\s+(?:share|disclose|give|tell|reveal)\b[^.\n]{0,40}?\b(?:otp|pin|cvv|password)\b[^.\n]{0,30}`,
+  'gi'
+);
+const OTP_BESIDE_NUMBER = new RegExp(
+  String.raw`\b${OTP_WORD}\b[^.\n]{0,30}?\b\d{4,8}\b|\b\d{4,8}\b[^.\n]{0,30}?\b${OTP_WORD}\b`,
+  'i'
+);
+
 export function hasOtpCode(text) {
+  const withoutWarnings = String(text).replace(OTP_WARNING, ' ');
   return (
-    /\b(?:otp|one[- ]time (?:password|code|pin)|verification code|login code)\b/i.test(text) &&
-    /\b\d{4,8}\b/.test(text)
+    new RegExp(String.raw`\b${OTP_WORD}\b`, 'i').test(withoutWarnings) &&
+    /\b\d{4,8}\b/.test(withoutWarnings) &&
+    OTP_BESIDE_NUMBER.test(withoutWarnings)
   );
 }
 

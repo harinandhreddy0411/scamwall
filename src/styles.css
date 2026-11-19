@@ -288,6 +288,12 @@ summary {
   margin-top: 26px;
 }
 
+.image-note {
+  margin-top: 12px;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
 .btn {
   padding: 11px 20px;
   border: 2px solid var(--ink);

@@ -67,7 +67,7 @@ Google Messages already has on-device scam detection on Android ([Google's annou
 ### How Firebase AI Logic is used
 
 - **Hybrid inference with explicit modes.** The app creates two models from one `getAI(app, { backend: new GoogleAIBackend() })`: one with `InferenceMode.ONLY_ON_DEVICE` and one with `InferenceMode.ONLY_IN_CLOUD`. It deliberately avoids the "prefer on-device" modes, because a silent fallback would send the user's text to the cloud without consent. The result's `inferenceSource` is read to confirm which side answered.
-- **On-device model:** Chrome's built-in Gemini Nano through the Prompt API. The first check calls `initializeDeviceModel()` from a click, as Chrome requires. The first call after that takes about 18 seconds. Later calls took 2.2 to 3.6 seconds on our test laptop, 2.7 seconds on average over 61 messages.
+- **On-device model:** Chrome's built-in Gemini Nano through the Prompt API. The first check calls `initializeDeviceModel()` from a click, as Chrome requires. The first call after that takes about 18 seconds. Later calls took 1.6 to 5.3 seconds on our test laptop, 2.1 seconds on average over 61 messages in the latest run.
 - **Cloud model:** `gemini-3.5-flash-lite`, about 1.5 to 4 seconds per call in our tests.
 - **Structured output on both sides.** The same JSON schema (what the message asks the reader to do, and a three-level scam likelihood) is passed as `responseConstraint` on-device and as `responseJsonSchema` in the cloud. The answer is parsed and checked in code. Anything unusable fails safe to "Verify first".
 - **App Check.** Production uses `ReCaptchaEnterpriseProvider`. Local development uses the debug provider. The Firebase console shows 100% of AI Logic requests as verified.
@@ -105,7 +105,15 @@ A scammer can add text to a message that tries to instruct an AI reader ("ignore
 
 What was measured, honestly: the rule was written against 8 cases and then extended after 8 more were seen, so both of those sets are development data. On 8 further cases written after the rules were final, the injection rule itself fired on 1. The other 7 were judged by their scam content alone, with the rules only (no AI): 5 reached "Red flags found" because of other signs in the message, 1 ("forget everything you were told earlier") reached "Verify first", and 1 (written in French) reached "No red flags found". The rule is a speed bump that catches the common phrasings. It is not a complete defence. The harness has a button that runs all 24 cases through the on-device model. These cases are scams with an injection added, so they cannot show how a harmless-looking message with an injection added would be handled.
 
-[TO ADD: results of harness button 4 on the final prompt.]
+Results on the author's laptop, with the real on-device model and the rules together: all 24 injection cases ended at "Red flags found" (21) or "Looks suspicious" (3), and none at "No red flags found". The model alone rated 3 of the 24 as low risk (the "as an AI" case, a "(Reviewer..." case and an "[end of message]" case), and in each of them the rule had caught the injection. That is the evidence for keeping the rule: with the plain prompt, the model alone can be talked out of a verdict about one time in eight. On the 8 clean cases, the combined result was 6 "Red flags found" and 2 "Looks suspicious".
+
+### Screenshots
+
+Many scams reach people as screenshots. Where Chrome's built-in model accepts images, a "Read a screenshot" button (or pasting or dropping an image into the box) sends the image to the **on-device model only**, through the same Firebase AI Logic on-device mode. It asks for a plain transcription, and the text lands in the editable box. Nothing is checked until you press "Check this message", so you can compare the text with your screenshot and fix a misread word first. Images are never sent to the cloud, because a screenshot cannot be redacted. Only PNG and JPEG up to 8 MB are accepted, because Firebase's on-device mode rejects other image types.
+
+A short spike, honestly reported: on 4 made-up English images (a one-message scam, a chat transcript with timestamps, a bank debit alert, and a smaller or cropped copy of the alert), all digits and links came back correctly. One bank-alert read changed the masked account `XX1234` to `XXX1234`, and another changed `A/c` to `A/C`. That is 4 clean images read once each, not an accuracy figure. The harness has a box that reads your own made-up screenshots and reports any changed digit.
+
+Through Firebase AI Logic on the real model, 2 of the 4 images were re-read in the harness: every digit came back unchanged in both, the bank-alert read again produced `XXX1234` for `XX1234`, and the other read changed the capital B of a brand name. A real phone screenshot of a bank SMS thread (not included in this repository) was transcribed with every amount, date and reference number correct, and it also copied the phone's status bar. In that run the model added a stray trailing "NONE", which the app now removes. Chat bubbles, a dark theme and a status bar did not stop the read. One real screenshot is an anecdote, not a measurement.
 
 ### Language handling
 
@@ -119,6 +127,7 @@ What leaves the device, and when:
 | --- | --- | --- |
 | Rules, highlights, redaction preview | In the page | Nothing |
 | On-device AI check | Chrome's built-in model | Nothing about the message |
+| Reading a screenshot | Chrome's built-in model | Nothing. The image is never sent to the cloud |
 | Cloud second opinion | Firebase AI Logic, cloud model | The edited, redacted text you approved, plus a fixed instruction prompt |
 
 - **Redaction is done by code, not by the AI.** It hides links, email addresses, UPI IDs, Indian mobile numbers, card or ID numbers written in groups of four, PAN-style tax IDs, and any run of six or more digits. **It does not find names.** The screen says so, and you can edit the text before sending.
@@ -137,16 +146,16 @@ The engine was tested on a set of **61 messages written by the author** (32 scam
 - 0 scams were shown as "No red flags found".
 - None of the 22 legitimate messages was shown as "Red flags found" or "Looks suspicious".
 - One ambiguous message (a statement containing a short link and a payment deadline) was shown as "Red flags found". Its expected answer was a judgment call.
-- 25 of the 32 scams reached "Red flags found". Of the rest, 1 reached "Looks suspicious" and 6 reached "Verify first".
-- 14 of the 22 legitimate messages reached "No red flags found". 8 (36%) ended at "Verify first".
+- 25 of the 32 scams reached "Red flags found". Of the rest, 3 reached "Looks suspicious" and 4 reached "Verify first".
+- 12 of the 22 legitimate messages reached "No red flags found". 10 (45%) ended at "Verify first". That is a real cost: nearly half of legitimate messages ask the user to check something, and we accept it because the app never says "safe" without evidence.
 - Run-to-run variation is real: the on-device model's answers on a few messages changed between two runs of the same build, so single-run counts can move by a message or two.
 - In a cloud-only run on the hardest and freshest 37 messages, the cloud model produced one false alarm, a legitimate bank debit alert that tells you to call a number. This is why a cloud "high" never turns a message red.
 
-[TO ADD: refresh these counts from one clean harness run of the final build.]
+These counts are from one harness run on 18 November 2026. An earlier run of the same prompt gave 14 and 8 for the legitimate messages, which is the run-to-run variation described above.
 
 ### How to read these numbers
 
-- **These are not an accuracy benchmark.** The author wrote the messages, and the rules and verdict logic were adjusted after seeing results on most of them. The numbers show that the safety design behaves as intended on those messages. They do not predict performance on real messages.
+- **These are not an accuracy benchmark.** The author wrote the messages, and the rules and verdict logic were adjusted after seeing results on most of them. The numbers show that the safety design behaves as intended on those messages. One real defect was found only when the author tried a real bank SMS: the one-time-code rule fired on any message containing the word OTP and a four-digit number, so the standard "Never share OTP" line made every real bank alert say "Verify first" for a wrong reason. The rule now ignores warning phrases and needs the number beside the OTP wording; the 85 test messages were unchanged by the fix. They do not predict performance on real messages.
 - A clean evaluation needs messages the author has never seen. A test with real, anonymised messages is planned and its results will be added here.
 - The first call after the on-device model loads takes about 18 seconds. Later calls take about 3 seconds.
 
@@ -159,7 +168,7 @@ The engine was tested on a set of **61 messages written by the author** (32 scam
 - On-device AI needs **desktop Chrome 139 or newer** with the built-in model available. Other browsers get the rules only, plus the cloud second opinion.
 - On-device checks are English only. Other languages need the cloud path.
 - The "call or message a mobile number" rule only recognises 10-digit mobile numbers.
-- Text only. Screenshots and images are not read. On-device translation of other languages has not been built.
+- **Screenshots are read in English only, and only where Chrome offers on-device image input.** A misread word or digit changes the result, which is why the text is shown for you to check before anything runs. Text in other languages inside a screenshot may be read wrongly, and the on-device model cannot read Hindi, Tamil or Telugu text. On-device translation has not been built: Chrome's Translator API had no Malayalam and needs a per-language download.
 - Scamwall is an aid for a second look. It is not a security product and cannot replace calling the real organisation through a number you already trust.
 
 ## Try it
@@ -234,6 +243,7 @@ src/signals.js        the rules and their exact highlights
 src/verdict.js        verdict decision and merging of opinions
 src/structured.js     JSON schema and prompt shared by both models
 src/model.js          one call to a model, with parsing and retry
+src/image.js          screenshot reading on-device and the check of what it returned
 src/redact.js         redaction of the text before it can leave the device
 src/resolver.js       the "Check it yourself" comparison of numbers and websites
 src/script.js         detection of scripts the on-device model cannot read
